@@ -2,3 +2,6 @@
 	path = godot-cpp
 	url = https://github.com/godotengine/godot-cpp.git
 	ignore = dirty
+[submodule "extensions/midi_player"]
+	path = extensions/midi_player
+	url = https://github.com/goblinengine/midi_player
