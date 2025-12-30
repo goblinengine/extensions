@@ -395,3 +395,5 @@ $RECYCLE.BIN/
 *.msp
 *.lnk
 *.generated.props
+
+godot_project/.godot
