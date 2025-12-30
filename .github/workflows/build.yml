@@ -1,0 +1,133 @@
+name: Build Extensions (Release)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows-debug:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install SCons
+        run: pip install scons
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build godot-cpp (debug)
+        run: |
+          cd godot-cpp
+          scons platform=windows target=template_debug arch=x86_64 -j4
+
+      - name: Build midi_player extension (debug)
+        run: scons extension=midi_player platform=windows target=template_debug arch=x86_64 -j4
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: midi-player-windows-debug-x86_64
+          path: addons/midi_player/bin/*.dll
+
+  build-windows-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install SCons
+        run: pip install scons
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build godot-cpp (release)
+        run: |
+          cd godot-cpp
+          scons platform=windows target=template_release arch=x86_64 -j4
+
+      - name: Build midi_player extension (release)
+        run: scons extension=midi_player platform=windows target=template_release arch=x86_64 -j4
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: midi-player-windows-release-x86_64
+          path: addons/midi_player/bin/*.dll
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential scons pkg-config
+
+      - name: Build godot-cpp
+        run: |
+          cd godot-cpp
+          scons platform=linux target=template_release arch=x86_64 -j4
+
+      - name: Build midi_player extension
+        run: scons extension=midi_player platform=linux target=template_release arch=x86_64 -j4
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: midi-player-linux-release-x86_64
+          path: addons/midi_player/bin/*.so
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install SCons
+        run: pip install scons
+
+      - name: Build godot-cpp
+        run: |
+          cd godot-cpp
+          scons platform=macos target=template_release arch=universal -j4
+
+      - name: Build midi_player extension
+        run: scons extension=midi_player platform=macos target=template_release arch=universal -j4
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: midi-player-macos-release-universal
+          path: addons/midi_player/bin/*.dylib
