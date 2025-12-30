@@ -1,0 +1,17 @@
+[configuration]
+entry_symbol = "dascript_library_init"
+compatibility_minimum = "4.5"
+reloadable = true
+
+[icons]
+DAScript = "res://addons/dascript/icon.svg"
+
+[libraries]
+# You will build these binaries with SCons.
+# Godot picks the appropriate one automatically.
+windows.release.x86_64 = "res://addons/dascript/bin/dascript.windows.template_debug.x86_64.dll"
+windows.debug.x86_64 = "res://addons/dascript/bin/dascript.windows.template_debug.x86_64.dll"
+linux.debug.x86_64 = "res://addons/dascript/bin/libdascript.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://addons/dascript/bin/libdascript.linux.template_release.x86_64.so"
+macos.debug.universal = "res://addons/dascript/bin/libdascript.macos.template_debug.universal.dylib"
+macos.release.universal = "res://addons/dascript/bin/libdascript.macos.template_release.universal.dylib"
