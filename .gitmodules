@@ -5,3 +5,7 @@
 [submodule "extensions/midi_player"]
 	path = extensions/midi_player
 	url = https://github.com/goblinengine/midi_player
+
+[submodule "extensions/dascript"]
+	path = extensions/dascript
+	url = https://github.com/goblinengine/dascript.git
