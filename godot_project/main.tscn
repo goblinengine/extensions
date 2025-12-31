@@ -1,3 +1,6 @@
-[gd_scene format=3 uid="uid://cdopu0sg6v0q1"]
+[gd_scene load_steps=2 format=3 uid="uid://cdopu0sg6v0q1"]
+
+[ext_resource type="Script" uid="uid://dm0w00l6ni7p7" path="res://test.das" id="1_ig7tw"]
 
 [node name="Main" type="Node"]
+script = ExtResource("1_ig7tw")
