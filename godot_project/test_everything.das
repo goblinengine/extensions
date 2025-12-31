@@ -1,12 +1,8 @@
-require godot
 
 // Test script for comprehensive DaScript feature coverage
 
 // Signals
-[signal]
 var test_signal : Signal
-
-[signal]
 var test_signal_with_args : Signal
 
 // Enums
@@ -20,7 +16,7 @@ enum Flags
 	FLAG_B = 2
 	FLAG_C = 4
 
-// Constants
+ Constants
 let MAX_HEALTH : int = 100
 let PI_APPROX : float = 3.14159
 let GAME_NAME : String = "Test Game"
