@@ -3,12 +3,10 @@
 	url = https://github.com/godotengine/godot-cpp.git
 	ignore = dirty
 	branch = master
+[submodule "extensions/dascript"]
+	path = extensions/dascript
+	url = https://github.com/goblinengine/dascript.git
+	branch = main
 [submodule "extensions/midi_player"]
 	path = extensions/midi_player
 	url = https://github.com/goblinengine/midi_player
-	branch = main
-
-[submodule "extensions/dascript"]
-	path = extensions/dascript/lib/DarkScript
-	url = https://github.com/goblinengine/DarkScript.git
-	branch = main
