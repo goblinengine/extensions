@@ -9,6 +9,6 @@
 	branch = main
 
 [submodule "extensions/dascript"]
-	path = extensions/dascript
-	url = https://github.com/goblinengine/dascript.git
+	path = extensions/dascript/lib/DarkScript
+	url = https://github.com/goblinengine/DarkScript.git
 	branch = main
