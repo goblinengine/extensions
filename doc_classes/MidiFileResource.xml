@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="MidiFileResource" inherits="Resource" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		A resource wrapper for MIDI files used by [MidiPlayer].
+	</brief_description>
+	<description>
+		[MidiFileResource] loads and stores MIDI file data for playback by [MidiPlayer]. It is typically created via the editor's import system or by direct scripting.
+
+		The resource automatically detects the MIDI file format (Standard MIDI File format 0 or 1) and parses all tracks, tempo changes, and note events.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+	</methods>
+	<constants>
+	</constants>
+</class>

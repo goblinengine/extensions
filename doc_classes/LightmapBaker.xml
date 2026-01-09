@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="LightmapBaker" inherits="RefCounted" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Runtime CPU lightmap baker for static lighting in Godot 4.
+	</brief_description>
+	<description>
+		[LightmapBaker] provides a complete runtime lightmapping solution for baking static lights into lightmap textures. It performs direct lighting with ray-traced shadows, multi-bounce indirect lighting, and automatic atlas packing.
+
+		Access it as a singleton via static methods:
+		[codeblock]
+		LightmapBaker.set_bounces(2)
+		LightmapBaker.set_use_shadowing(true)
+		var err = LightmapBaker.bake(get_tree().current_scene, lightmap_data)
+		[/codeblock]
+
+		The baker automatically:
+		- Gathers all [MeshInstance3D] nodes with UV2 lightmap coordinates
+		- Collects all [Light3D] nodes set to [constant Light3D.BAKE_STATIC] mode
+		- Rasterizes direct lighting with Lambertian shading
+		- Performs ray–triangle shadowing against the scene geometry
+		- Computes multi-bounce indirect lighting with color bleeding
+		- Packs lightmaps into a [Texture2DArray] atlas
+		- Dilates seams to prevent visible edges
+		- Generates a [LightmapGIData] ready for [LightmapGI] assignment
+
+		Features:
+		- Configurable bake quality (low/medium/high/ultra)
+		- Customizable atlas texture size and packing padding
+		- Per-mesh lightmap size hints with texel scaling
+		- Adjustable ray bias for shadow computation
+		- Energy control for indirect bounces
+		- Optional seam blending and denoising hooks (future)
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="bake" qualifiers="static">
+			<return type="int" enum="LightmapBaker.BakeError" />
+			<param index="0" name="from_node" type="Node" />
+			<param index="1" name="output_data" type="LightmapGIData" />
+			<description>
+				Bakes static lighting from the given scene node and all its descendants. Returns a [enum LightmapBaker.BakeError] code. On success ([constant LightmapBaker.BAKE_ERROR_OK]), [param output_data] is populated with the lightmap textures and surface mappings.
+
+				[param from_node] should be the root of the scene to bake (typically the scene root or a subtree). [param output_data] must be a pre-created [LightmapGIData] instance.
+			</description>
+		</method>
+		<method name="get_bake_quality" qualifiers="static">
+			<return type="int" enum="LightmapBaker.BakeQuality" />
+			<description>
+				Returns the current bake quality setting.
+			</description>
+		</method>
+		<method name="get_bias" qualifiers="static">
+			<return type="float" />
+			<description>
+				Returns the ray bias used for shadow computation. Prevents shadow acne by offsetting rays slightly away from the surface.
+			</description>
+		</method>
+		<method name="get_bounce_indirect_energy" qualifiers="static">
+			<return type="float" />
+			<description>
+				Returns the energy multiplier for indirect bounces.
+			</description>
+		</method>
+		<method name="get_bounces" qualifiers="static">
+			<return type="int" />
+			<description>
+				Returns the number of bounces computed for indirect lighting.
+			</description>
+		</method>
+		<method name="get_denoiser_strength" qualifiers="static">
+			<return type="float" />
+			<description>
+				Returns the denoiser strength (0.0–1.0). Currently a stub for future denoising integration.
+			</description>
+		</method>
+		<method name="get_gathered_light_count" qualifiers="static">
+			<return type="int" />
+			<description>
+				Returns the number of static lights found in the most recent bake. Useful for debugging.
+			</description>
+		</method>
+		<method name="get_gathered_mesh_count" qualifiers="static">
+			<return type="int" />
+			<description>
+				Returns the number of meshes with UV2 coordinates found in the most recent bake. Useful for debugging.
+			</description>
+		</method>
+		<method name="get_max_texture_size" qualifiers="static">
+			<return type="int" />
+			<description>
+				Returns the hard cap on atlas texture size (default: 16384).
+			</description>
+		</method>
+		<method name="get_atlas_size_override" qualifiers="static">
+			<return type="int" />
+			<description>
+				Returns the explicit atlas size override (0 means auto-select based on bake_quality).
+			</description>
+		</method>
+		<method name="get_atlas_padding" qualifiers="static">
+			<return type="int" />
+			<description>
+				Returns the padding in pixels around each lightmap in the atlas (default: 2).
+			</description>
+		</method>
+		<method name="get_texel_scale" qualifiers="static">
+			<return type="float" />
+			<description>
+				Returns the global texel scale multiplier applied to all mesh lightmap size hints.
+			</description>
+		</method>
+		<method name="get_use_denoiser" qualifiers="static">
+			<return type="bool" />
+			<description>
+				Returns whether denoising is enabled (currently a stub).
+			</description>
+		</method>
+		<method name="get_use_shadowing" qualifiers="static">
+			<return type="bool" />
+			<description>
+				Returns whether ray-traced shadow computation is enabled during baking.
+			</description>
+		</method>
+		<method name="set_bake_quality" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="quality" type="int" enum="LightmapBaker.BakeQuality" />
+			<description>
+				Sets the bake quality: [constant LightmapBaker.BAKE_QUALITY_LOW] (256px), [constant LightmapBaker.BAKE_QUALITY_MEDIUM] (512px), [constant LightmapBaker.BAKE_QUALITY_HIGH] (1024px), or [constant LightmapBaker.BAKE_QUALITY_ULTRA] (2048px).
+			</description>
+		</method>
+		<method name="set_bias" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="bias" type="float" />
+			<description>
+				Sets the ray bias for shadow computation (default: 0.0005). Increase to prevent shadow acne; decrease for sharper shadows.
+			</description>
+		</method>
+		<method name="set_bounce_indirect_energy" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="energy" type="float" />
+			<description>
+				Sets the energy multiplier for indirect bounces (default: 1.0). Controls how much color bleeding from bounces contributes to final lighting.
+			</description>
+		</method>
+		<method name="set_bounces" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="bounces" type="int" />
+			<description>
+				Sets the number of indirect light bounces to compute (default: 3). Each bounce costs more computation but adds realism via color bleeding.
+			</description>
+		</method>
+		<method name="set_denoiser_strength" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="strength" type="float" />
+			<description>
+				Sets denoiser strength (0.0–1.0). Currently a stub for future Intel OIDN or similar integration.
+			</description>
+		</method>
+		<method name="set_max_texture_size" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="size" type="int" />
+			<description>
+				Sets the hard cap on atlas texture size (default: 16384). Useful for older hardware with VRAM limits.
+			</description>
+		</method>
+		<method name="set_atlas_size_override" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="size" type="int" />
+			<description>
+				Explicitly sets the atlas texture size. Set to 0 to auto-select based on [method set_bake_quality].
+			</description>
+		</method>
+		<method name="set_atlas_padding" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="padding" type="int" />
+			<description>
+				Sets the padding in pixels around each lightmap in the atlas (default: 2). Larger padding reduces seam artifacts but uses more memory.
+			</description>
+		</method>
+		<method name="set_texel_scale" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="scale" type="float" />
+			<description>
+				Sets a global texel scale multiplier (default: 1.0) applied to all mesh lightmap size hints. Useful for fast iteration (e.g., 0.5 for half resolution).
+			</description>
+		</method>
+		<method name="set_use_denoiser" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="enabled" type="bool" />
+			<description>
+				Enables or disables denoising (currently a stub for future integration).
+			</description>
+		</method>
+		<method name="set_use_shadowing" qualifiers="static">
+			<return type="void" />
+			<param index="0" name="enabled" type="bool" />
+			<description>
+				Enables or disables ray-traced shadow computation during baking (default: true). Disabling speeds up baking but loses shadow detail.
+			</description>
+		</method>
+	</methods>
+	<constants>
+		<constant name="BAKE_QUALITY_LOW" value="0" enum="BakeQuality">
+			Low quality: 256×256 atlas per slice.
+		</constant>
+		<constant name="BAKE_QUALITY_MEDIUM" value="1" enum="BakeQuality">
+			Medium quality: 512×512 atlas per slice (default).
+		</constant>
+		<constant name="BAKE_QUALITY_HIGH" value="2" enum="BakeQuality">
+			High quality: 1024×1024 atlas per slice.
+		</constant>
+		<constant name="BAKE_QUALITY_ULTRA" value="3" enum="BakeQuality">
+			Ultra quality: 2048×2048 atlas per slice.
+		</constant>
+		<constant name="BAKE_ERROR_OK" value="0" enum="BakeError">
+			Bake succeeded.
+		</constant>
+		<constant name="BAKE_ERROR_NO_SCENE_ROOT" value="1" enum="BakeError">
+			The scene root node is null.
+		</constant>
+		<constant name="BAKE_ERROR_NO_LIGHTMAPPER" value="2" enum="BakeError">
+			No lightmapper is available (singleton not registered).
+		</constant>
+		<constant name="BAKE_ERROR_NO_MESHES" value="3" enum="BakeError">
+			No meshes with UV2 coordinates found in the scene.
+		</constant>
+		<constant name="BAKE_ERROR_MESHES_INVALID" value="4" enum="BakeError">
+			One or more meshes have invalid UV2 or vertex data.
+		</constant>
+		<constant name="BAKE_ERROR_CANT_CREATE_IMAGE" value="5" enum="BakeError">
+			Failed to create a lightmap image (likely out of memory).
+		</constant>
+		<constant name="BAKE_ERROR_USER_ABORTED" value="6" enum="BakeError">
+			User cancelled the bake (stub; not used yet).
+		</constant>
+		<constant name="BAKE_ERROR_TEXTURE_SIZE_TOO_SMALL" value="7" enum="BakeError">
+			Atlas size is below the minimum (32×32).
+		</constant>
+		<constant name="BAKE_ERROR_LIGHTMAP_TOO_SMALL" value="8" enum="BakeError">
+			Individual lightmap size is too small.
+		</constant>
+		<constant name="BAKE_ERROR_ATLAS_TOO_SMALL" value="9" enum="BakeError">
+			Could not pack lightmaps into the atlas (too many surfaces).
+		</constant>
+	</constants>
+</class>
