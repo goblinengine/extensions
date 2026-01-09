@@ -6,9 +6,11 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include <godot_cpp/classes/directional_light3d.hpp>
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/image_texture_layered.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/omni_light3d.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/spot_light3d.hpp>
 #include <godot_cpp/classes/texture2d_array.hpp>
 
@@ -29,6 +31,33 @@ struct LightmapBaker::RayMesh {
 };
 
 LightmapBaker::LightmapBaker() {
+	// Read project settings as defaults (can be overridden per-bake)
+	ProjectSettings *ps = ProjectSettings::get_singleton();
+	if (ps != nullptr) {
+		// Bake quality: rendering/lightmapping/bake_quality/<low|medium|high|ultra>_quality_ray_count
+		// Default to medium quality if no settings found
+		if (ps->has_setting("rendering/lightmapping/bake_quality/medium_quality_ray_count")) {
+			int ray_count = (int)ps->get_setting("rendering/lightmapping/bake_quality/medium_quality_ray_count");
+			// Map ray count to quality level (approximate)
+			if (ray_count <= 64) {
+				bake_quality = BAKE_QUALITY_LOW;
+			} else if (ray_count <= 256) {
+				bake_quality = BAKE_QUALITY_MEDIUM;
+			} else if (ray_count <= 1024) {
+				bake_quality = BAKE_QUALITY_HIGH;
+			} else {
+				bake_quality = BAKE_QUALITY_ULTRA;
+			}
+		}
+
+		// Bounces: rendering/lightmapping/bake_quality/high_quality_probe_ray_count maps to indirect
+		// Actually use rendering/global_illumination/gi/use_half_resolution as a quality hint
+		if (ps->has_setting("rendering/lightmapping/primitive_meshes/texel_size")) {
+			float texel = (float)ps->get_setting("rendering/lightmapping/primitive_meshes/texel_size");
+			// texel_size is the default size, we use it inversely
+			texel_scale = 1.0f / Math::max(0.01f, texel * 5.0f); // Approximate mapping
+		}
+	}
 }
 
 LightmapBaker::~LightmapBaker() {
@@ -442,22 +471,63 @@ LightmapBaker::BakeError LightmapBaker::_bake_direct_light(Ref<LightmapGIData> p
 		_report_progress(0.65f, "Baking indirect lighting...", p_progress, p_userdata);
 		BakeError error = _bake_indirect_light(mesh_lightmaps, p_progress, p_userdata);
 		if (error != BAKE_ERROR_OK) {
-			return error;
+			UtilityFunctions::push_warning("Indirect pass failed, using direct lighting only");
 		}
 	}
 
 	_report_progress(0.75f, "Dilating seams...", p_progress, p_userdata);
 	_dilate_lightmaps(mesh_lightmaps, 2);
 
-	_report_progress(0.8f, "Repacking final lightmaps...", p_progress, p_userdata);
-	atlas_layers = _pack_lightmaps_to_atlas(gathered_meshes, mesh_lightmaps, atlas_size, padding);
+	// Update atlas pixel data in-place (layout/UV scale doesn't change with bounces/dilation).
+	_report_progress(0.8f, "Updating atlas layers...", p_progress, p_userdata);
+	for (int i = 0; i < mesh_lightmaps.size() && i < (int)gathered_meshes.size(); i++) {
+		Ref<Image> src = mesh_lightmaps[i];
+		if (src.is_null() || src->is_empty()) {
+			continue;
+		}
+		const MeshData &md = gathered_meshes[(size_t)i];
+		if (md.lightmap_slice < 0 || md.lightmap_slice >= atlas_layers.size()) {
+			continue;
+		}
+		Ref<Image> dst = atlas_layers[md.lightmap_slice];
+		if (dst.is_null() || dst->is_empty()) {
+			continue;
+		}
+
+		Vector2 uv_offset = md.lightmap_uv_scale.position;
+		Vector2i pos(
+				(int)Math::round(uv_offset.x * (float)dst->get_width()),
+				(int)Math::round(uv_offset.y * (float)dst->get_height()));
+
+		if (pos.x < 0 || pos.y < 0 || pos.x + src->get_width() > dst->get_width() || pos.y + src->get_height() > dst->get_height()) {
+			UtilityFunctions::push_warning("LightmapBaker: atlas blit out of bounds for surface index " + String::num_int64(i));
+			continue;
+		}
+
+		dst->blit_rect(src, Rect2i(Vector2i(0, 0), src->get_size()), pos);
+	}
+
+	// Validate atlas layers before texture creation.
 	if (atlas_layers.is_empty()) {
-		return BAKE_ERROR_ATLAS_TOO_SMALL;
+		UtilityFunctions::push_error("LightmapBaker: atlas_layers is empty");
+		return BAKE_ERROR_CANT_CREATE_IMAGE;
+	}
+	bool has_valid_atlas = false;
+	for (int i = 0; i < atlas_layers.size(); i++) {
+		if (!atlas_layers[i].is_null() && !atlas_layers[i]->is_empty()) {
+			has_valid_atlas = true;
+			break;
+		}
+	}
+	if (!has_valid_atlas) {
+		UtilityFunctions::push_error("LightmapBaker: atlas_layers are all null/empty");
+		return BAKE_ERROR_CANT_CREATE_IMAGE;
 	}
 
 	_report_progress(0.85f, "Creating Texture2DArray...", p_progress, p_userdata);
 	Ref<Texture2DArray> tex_array = _create_texture_array_from_images(atlas_layers);
 	if (tex_array.is_null()) {
+		UtilityFunctions::push_error("Failed to create Texture2DArray from atlas layers");
 		return BAKE_ERROR_CANT_CREATE_IMAGE;
 	}
 
@@ -539,7 +609,14 @@ LightmapBaker::BakeError LightmapBaker::_bake_indirect_light(Vector<Ref<Image>> 
 		for (int i = 0; i < p_lightmaps.size(); i++) {
 			Ref<Image> dst = p_lightmaps[i];
 			Ref<Image> src = bounce_light[i];
-			if (dst.is_null() || src.is_null()) continue;
+			if (dst.is_null() || src.is_null()) {
+				UtilityFunctions::push_warning("Bounce " + String::num_int64(bounce + 1) + ": null lightmap at index " + String::num_int64(i));
+				continue;
+			}
+			if (dst->is_empty() || src->is_empty()) {
+				UtilityFunctions::push_warning("Bounce " + String::num_int64(bounce + 1) + ": empty lightmap at index " + String::num_int64(i));
+				continue;
+			}
 
 			for (int y = 0; y < dst->get_height(); y++) {
 				for (int x = 0; x < dst->get_width(); x++) {
@@ -623,14 +700,22 @@ void LightmapBaker::_dilate_lightmaps(Vector<Ref<Image>> &p_lightmaps, int p_dil
 
 // Texture management
 Ref<Image> LightmapBaker::_create_lightmap_image(int p_width, int p_height) {
-	Ref<Image> img;
-	img.instantiate();
-	img->create(p_width, p_height, false, Image::FORMAT_RGBH);
+	if (p_width <= 0 || p_height <= 0) {
+		return Ref<Image>();
+	}
+	Ref<Image> img = Image::create(p_width, p_height, false, Image::FORMAT_RGBH);
+	if (img.is_null() || img->is_empty()) {
+		UtilityFunctions::push_error("LightmapBaker: failed to create Image (" + String::num_int64(p_width) + "x" + String::num_int64(p_height) + ")");
+		return Ref<Image>();
+	}
 	return img;
 }
 
 Vector<Ref<Image>> LightmapBaker::_pack_lightmaps_to_atlas(std::vector<MeshData> &p_meshes, const Vector<Ref<Image>> &p_lightmaps, int p_atlas_size, int p_padding) {
 	if (p_meshes.empty() || p_lightmaps.is_empty() || p_meshes.size() != (size_t)p_lightmaps.size()) {
+		return Vector<Ref<Image>>();
+	}
+	if (p_atlas_size <= 0) {
 		return Vector<Ref<Image>>();
 	}
 
@@ -644,7 +729,7 @@ Vector<Ref<Image>> LightmapBaker::_pack_lightmaps_to_atlas(std::vector<MeshData>
 	items.resize(p_lightmaps.size());
 	for (int i = 0; i < p_lightmaps.size(); i++) {
 		Ref<Image> img = p_lightmaps[i];
-		if (img.is_null()) {
+		if (img.is_null() || img->is_empty() || img->get_width() <= 0 || img->get_height() <= 0) {
 			return Vector<Ref<Image>>();
 		}
 		Item it;
@@ -705,7 +790,7 @@ Vector<Ref<Image>> LightmapBaker::_pack_lightmaps_to_atlas(std::vector<MeshData>
 	atlas_layers.resize(slice + 1);
 	for (int s = 0; s <= slice; s++) {
 		Ref<Image> atlas = _create_lightmap_image(p_atlas_size, p_atlas_size);
-		if (atlas.is_null()) {
+		if (atlas.is_null() || atlas->is_empty()) {
 			return Vector<Ref<Image>>();
 		}
 		atlas->fill(Color(0, 0, 0, 1));
@@ -717,7 +802,14 @@ Vector<Ref<Image>> LightmapBaker::_pack_lightmaps_to_atlas(std::vector<MeshData>
 		Ref<Image> src = p_lightmaps[i];
 		const Placement &pl = placement[i];
 		Ref<Image> dst = atlas_layers[pl.slice];
-		dst->blit_rect(src, Rect2i(Vector2i(0, 0), src->get_size()), pl.pos);
+		if (src.is_null() || src->is_empty() || dst.is_null() || dst->is_empty()) {
+			return Vector<Ref<Image>>();
+		}
+		Vector2i ssize = src->get_size();
+		if (ssize.x <= 0 || ssize.y <= 0) {
+			return Vector<Ref<Image>>();
+		}
+		dst->blit_rect(src, Rect2i(Vector2i(0, 0), ssize), pl.pos);
 
 		MeshData &md = p_meshes[(size_t)i];
 		md.lightmap_slice = pl.slice;
@@ -746,10 +838,30 @@ Ref<Texture2DArray> LightmapBaker::_create_texture_array_from_images(const Vecto
 	if (p_layers.is_empty()) {
 		return Ref<Texture2DArray>();
 	}
+	if (p_layers[0].is_null() || p_layers[0]->is_empty()) {
+		return Ref<Texture2DArray>();
+	}
+	const Vector2i expected_size = p_layers[0]->get_size();
+	const Image::Format expected_format = p_layers[0]->get_format();
+	if (expected_size.x <= 0 || expected_size.y <= 0) {
+		return Ref<Texture2DArray>();
+	}
 
 	TypedArray<Ref<Image>> images;
 	images.resize(p_layers.size());
 	for (int i = 0; i < p_layers.size(); i++) {
+		if (p_layers[i].is_null() || p_layers[i]->is_empty()) {
+			UtilityFunctions::push_error("LightmapBaker: Texture2DArray layer is null/empty at index " + String::num_int64(i));
+			return Ref<Texture2DArray>();
+		}
+		if (p_layers[i]->get_size() != expected_size) {
+			UtilityFunctions::push_error("LightmapBaker: Texture2DArray layer size mismatch at index " + String::num_int64(i));
+			return Ref<Texture2DArray>();
+		}
+		if (p_layers[i]->get_format() != expected_format) {
+			UtilityFunctions::push_error("LightmapBaker: Texture2DArray layer format mismatch at index " + String::num_int64(i));
+			return Ref<Texture2DArray>();
+		}
 		images[i] = p_layers[i];
 	}
 
