@@ -4,7 +4,7 @@ on:
   workflow_dispatch:  # Manual trigger only
 
 jobs:
-  build-windows-debug:
+  build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,57 +22,22 @@ jobs:
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build godot-cpp (debug)
-        run: |
-          cd godot-cpp
-          scons platform=windows target=template_debug arch=x86_64 -j4
-
-      - name: Build extensions (debug)
-        run: scons platform=windows target=template_debug arch=x86_64 -j4
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: extensions-windows-debug-x86_64
-          path: godot_project/addons/extensions/bin/*.dll
-
-  build-windows-release:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install SCons
-        run: pip install scons
-
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Build godot-cpp (release)
+      - name: Build godot-cpp
         run: |
           cd godot-cpp
           scons platform=windows target=template_release arch=x86_64 -j4
 
-      - name: Build extensions (release)
+      - name: Build extensions
         run: scons platform=windows target=template_release arch=x86_64 -j4
 
-      - name: Upload artifact
+      - name: Upload Windows binaries
         uses: actions/upload-artifact@v4
         with:
-          name: extensions-windows-release-x86_64
+          name: windows-binaries
           path: godot_project/addons/extensions/bin/*.dll
 
   build-linux:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: [template_debug, template_release]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -91,22 +56,19 @@ jobs:
       - name: Build godot-cpp
         run: |
           cd godot-cpp
-          scons platform=linux target=${{ matrix.target }} arch=x86_64 -j4
+          scons platform=linux target=template_release arch=x86_64 -j4
 
       - name: Build extensions
-        run: scons platform=linux target=${{ matrix.target }} arch=x86_64 -j4
+        run: scons platform=linux target=template_release arch=x86_64 -j4
 
-      - name: Upload artifact
+      - name: Upload Linux binaries
         uses: actions/upload-artifact@v4
         with:
-          name: extensions-linux-${{ matrix.target }}-x86_64
+          name: linux-binaries
           path: godot_project/addons/extensions/bin/*.so
 
   build-macos:
     runs-on: macos-latest
-    strategy:
-      matrix:
-        target: [template_debug, template_release]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -123,13 +85,57 @@ jobs:
       - name: Build godot-cpp
         run: |
           cd godot-cpp
-          scons platform=macos target=${{ matrix.target }} arch=universal -j4
+          scons platform=macos target=template_release arch=universal -j4
 
       - name: Build extensions
-        run: scons platform=macos target=${{ matrix.target }} arch=universal -j4
+        run: scons platform=macos target=template_release arch=universal -j4
 
-      - name: Upload artifact
+      - name: Upload macOS binaries
         uses: actions/upload-artifact@v4
         with:
-          name: extensions-macos-${{ matrix.target }}-universal
+          name: macos-binaries
           path: godot_project/addons/extensions/bin/*.dylib
+
+  assemble-addon:
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-linux, build-macos]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create addon structure
+        run: |
+          mkdir -p artifact/extensions/bin
+
+      - name: Copy extension descriptor and README
+        run: |
+          cp godot_project/addons/extensions/extensions.gdextension artifact/extensions/
+          cp godot_project/addons/extensions/README.md artifact/extensions/
+
+      - name: Download Windows binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-binaries
+          path: artifact/extensions/bin
+
+      - name: Download Linux binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-binaries
+          path: artifact/extensions/bin
+
+      - name: Download macOS binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-binaries
+          path: artifact/extensions/bin
+
+      - name: List artifact contents
+        run: |
+          echo "=== Addon Structure ==="
+          ls -lhR artifact/
+
+      - name: Upload complete addon
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-extensions-addon
+          path: artifact/extensions/
