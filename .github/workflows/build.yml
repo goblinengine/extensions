@@ -1,11 +1,7 @@
-name: Build Extensions (Release)
+name: Build Extensions
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger only
 
 jobs:
   build-windows-debug:
@@ -31,14 +27,14 @@ jobs:
           cd godot-cpp
           scons platform=windows target=template_debug arch=x86_64 -j4
 
-      - name: Build midi_player extension (debug)
-        run: scons extension=midi_player platform=windows target=template_debug arch=x86_64 -j4
+      - name: Build extensions (debug)
+        run: scons platform=windows target=template_debug arch=x86_64 -j4
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: midi-player-windows-debug-x86_64
-          path: addons/midi_player/bin/*.dll
+          name: extensions-windows-debug-x86_64
+          path: godot_project/addons/extensions/bin/*.dll
 
   build-windows-release:
     runs-on: windows-latest
@@ -63,17 +59,20 @@ jobs:
           cd godot-cpp
           scons platform=windows target=template_release arch=x86_64 -j4
 
-      - name: Build midi_player extension (release)
-        run: scons extension=midi_player platform=windows target=template_release arch=x86_64 -j4
+      - name: Build extensions (release)
+        run: scons platform=windows target=template_release arch=x86_64 -j4
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: midi-player-windows-release-x86_64
-          path: addons/midi_player/bin/*.dll
+          name: extensions-windows-release-x86_64
+          path: godot_project/addons/extensions/bin/*.dll
 
   build-linux:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [template_debug, template_release]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -92,19 +91,22 @@ jobs:
       - name: Build godot-cpp
         run: |
           cd godot-cpp
-          scons platform=linux target=template_release arch=x86_64 -j4
+          scons platform=linux target=${{ matrix.target }} arch=x86_64 -j4
 
-      - name: Build midi_player extension
-        run: scons extension=midi_player platform=linux target=template_release arch=x86_64 -j4
+      - name: Build extensions
+        run: scons platform=linux target=${{ matrix.target }} arch=x86_64 -j4
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: midi-player-linux-release-x86_64
-          path: addons/midi_player/bin/*.so
+          name: extensions-linux-${{ matrix.target }}-x86_64
+          path: godot_project/addons/extensions/bin/*.so
 
   build-macos:
     runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [template_debug, template_release]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,13 +123,13 @@ jobs:
       - name: Build godot-cpp
         run: |
           cd godot-cpp
-          scons platform=macos target=template_release arch=universal -j4
+          scons platform=macos target=${{ matrix.target }} arch=universal -j4
 
-      - name: Build midi_player extension
-        run: scons extension=midi_player platform=macos target=template_release arch=universal -j4
+      - name: Build extensions
+        run: scons platform=macos target=${{ matrix.target }} arch=universal -j4
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: midi-player-macos-release-universal
-          path: addons/midi_player/bin/*.dylib
+          name: extensions-macos-${{ matrix.target }}-universal
+          path: godot_project/addons/extensions/bin/*.dylib
