@@ -24,6 +24,9 @@ sources = [
     "src/midi_player/midi_importers.cpp",
     "src/midi_player/midi_editor_plugin.cpp",
     "src/midi_player/thirdparty_tsf_tml.cpp",
+
+    # Lightmap baker component
+    "src/lightmap_baker/lightmap_baker.cpp",
 ]
 
 env.AppendUnique(CPPPATH=[

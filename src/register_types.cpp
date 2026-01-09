@@ -10,6 +10,8 @@
 #include "midi_player/midi_importers.h"
 #include "midi_player/midi_editor_plugin.h"
 
+#include "lightmap_baker/lightmap_baker.h"
+
 namespace godot {
 
 void initialize_extensions_module(ModuleInitializationLevel p_level) {
@@ -17,6 +19,7 @@ void initialize_extensions_module(ModuleInitializationLevel p_level) {
 		ClassDB::register_class<MidiFileResource>();
 		ClassDB::register_class<SoundFontResource>();
 		ClassDB::register_class<MidiPlayer>();
+		ClassDB::register_class<LightmapBaker>();
 	}
 	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
 		ClassDB::register_class<MidiImporter>();
