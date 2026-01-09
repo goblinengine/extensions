@@ -10,3 +10,9 @@
 [submodule "extensions/midi_player"]
 	path = extensions/midi_player
 	url = https://github.com/goblinengine/midi_player
+[submodule "extensions/gdas/lib/godot-das"]
+	path = extensions/gdas/lib/godot-das
+	url = https://github.com/GaijinEntertainment/godot-das
+[submodule "extensions/gdas/lib/DarkScript"]
+	path = extensions/gdas/lib/DarkScript
+	url = https://github.com/goblinengine/DarkScript

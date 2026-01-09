@@ -1,40 +1,63 @@
 #!/usr/bin/env python
 
 import os
+import sys
 
-# Root SConstruct for building all Godot extensions
-# This enables building multiple extensions with a single shared godot-cpp dependency
+# Add godot-cpp tools folder so we can use their build tools
+godot_cpp_path = "godot-cpp"
+if os.path.isdir(godot_cpp_path):
+    sys.path.append(os.path.abspath(os.path.join(godot_cpp_path, "tools")))
 
-# Available extensions to build
-EXTENSIONS = {
-    "midi_player": "Build MIDI Player GDExtension",
-    "dascript": "Build DaScript GDExtension (if enabled)",
-}
+# Import godot-cpp's SConstruct to get the configured env
+godot_env = SConscript("godot-cpp/SConstruct")
 
-# Get build target from command line (e.g., scons extension=midi_player)
-extension_target = ARGUMENTS.get("extension", "midi_player")
+env = godot_env.Clone()
 
-if extension_target not in EXTENSIONS:
-    print(f"ERROR: Unknown extension '{extension_target}'")
-    print(f"Available extensions: {', '.join(EXTENSIONS.keys())}")
-    print(f"\nUsage: scons extension=<name> platform=<platform> target=<target> arch=<arch>")
-    for ext, desc in EXTENSIONS.items():
-        print(f"  - {ext}: {desc}")
-    Exit(1)
+# Project sources - organize by component
+sources = [
+    # Register types (main entry point)
+    "src/register_types.cpp",
+    
+    # MidiPlayer component
+    "src/midi_player/midi_player.cpp",
+    "src/midi_player/midi_resources.cpp",
+    "src/midi_player/midi_importers.cpp",
+    "src/midi_player/midi_editor_plugin.cpp",
+    "src/midi_player/thirdparty_tsf_tml.cpp",
+]
 
-print(f"Building extension: {extension_target}")
+env.AppendUnique(CPPPATH=[
+    "src",
+    "src/midi_player",
+    "lib/TinySoundFont",
+])
 
-# Verify godot-cpp exists
-if not os.path.isdir("godot-cpp"):
-    print("ERROR: Missing ./godot-cpp. Ensure godot-cpp is set up as a git submodule:")
-    print("  git submodule update --init --recursive")
-    Exit(1)
+# Build output naming.
+# godot-cpp exposes env['suffix'] like: .windows.template_debug.x86_64
+suffix = env.get("suffix", "")
 
-# Build the selected extension
-extension_path = f"extensions/{extension_target}"
-if os.path.isdir(extension_path):
-    print(f"Building {extension_target} from {extension_path}/")
-    SConscript(f"{extension_path}/SConstruct")
-else:
-    print(f"ERROR: Extension directory '{extension_path}' not found")
-    Exit(1)
+# Shared library naming.
+lib_basename = "extensions" + suffix
+
+# Emit into the godot_project addon bin folder so Godot can load it.
+out_dir = "godot_project/addons/extensions/bin"
+
+# Ensure output dir exists.
+if not os.path.isdir(out_dir):
+    os.makedirs(out_dir)
+
+# SCons' SharedLibrary will add platform-specific prefixes/suffixes.
+# For Windows we want no 'lib' prefix, for others 'lib' is fine.
+if env["platform"] == "windows":
+    env["SHLIBPREFIX"] = ""
+
+# Set the target filename explicitly.
+target_path = os.path.join(out_dir, lib_basename + env["SHLIBSUFFIX"])
+
+lib = env.SharedLibrary(
+    target=env.File(target_path),
+    source=sources,
+)
+
+# Default build target.
+Default(lib)
