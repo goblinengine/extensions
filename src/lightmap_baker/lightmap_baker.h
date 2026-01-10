@@ -109,8 +109,26 @@ public:
 	void set_atlas_padding(int p_padding);
 	int get_atlas_padding() const;
 
+	// Post-process: dilate lightmap UV island borders (0 disables)
+	void set_seam_dilation_radius(int p_radius);
+	int get_seam_dilation_radius() const;
+
 	void set_texel_scale(float p_scale);
 	float get_texel_scale() const;
+
+	// Overall multiplier applied to baked lighting (useful to match runtime look)
+	void set_lightmap_energy_scale(float p_scale);
+	float get_lightmap_energy_scale() const;
+
+	// Simple ambient term added before scaling (linear space)
+	void set_ambient_energy(float p_energy);
+	float get_ambient_energy() const;
+
+	// Approximate runtime shading closer (diffuse albedo modulation and Lambert 1/PI factor).
+	void set_use_material_albedo(bool p_enabled);
+	bool get_use_material_albedo() const;
+	void set_use_lambert_normalization(bool p_enabled);
+	bool get_use_lambert_normalization() const;
 
 	void set_use_denoiser(bool p_enabled);
 	bool get_use_denoiser() const;
@@ -148,7 +166,12 @@ private:
 	int max_texture_size = 16384;
 	int atlas_size_override = 0;
 	int atlas_padding = 2;
+	int seam_dilation_radius = 2;
 	float texel_scale = 1.0f;
+	float lightmap_energy_scale = 1.0f;
+	float ambient_energy = 0.0f;
+	bool use_material_albedo = true;
+	bool use_lambert_normalization = true;
 	bool use_denoiser = true;
 	float denoiser_strength = 0.1f;
 	bool use_shadowing = true;

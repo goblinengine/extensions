@@ -7,6 +7,7 @@
 
 #include <godot_cpp/classes/directional_light3d.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/base_material3d.hpp>
 #include <godot_cpp/classes/image_texture_layered.hpp>
 #include <godot_cpp/classes/mesh.hpp>
 #include <godot_cpp/classes/omni_light3d.hpp>
@@ -88,8 +89,28 @@ void LightmapBaker::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_atlas_padding", "padding"), &LightmapBaker::set_atlas_padding);
 	ClassDB::bind_method(D_METHOD("get_atlas_padding"), &LightmapBaker::get_atlas_padding);
 
+	ClassDB::bind_method(D_METHOD("set_seam_dilation_radius", "radius"), &LightmapBaker::set_seam_dilation_radius);
+	ClassDB::bind_method(D_METHOD("get_seam_dilation_radius"), &LightmapBaker::get_seam_dilation_radius);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "seam_dilation_radius", PROPERTY_HINT_RANGE, "0,8,1"), "set_seam_dilation_radius", "get_seam_dilation_radius");
+
 	ClassDB::bind_method(D_METHOD("set_texel_scale", "scale"), &LightmapBaker::set_texel_scale);
 	ClassDB::bind_method(D_METHOD("get_texel_scale"), &LightmapBaker::get_texel_scale);
+
+	ClassDB::bind_method(D_METHOD("set_lightmap_energy_scale", "scale"), &LightmapBaker::set_lightmap_energy_scale);
+	ClassDB::bind_method(D_METHOD("get_lightmap_energy_scale"), &LightmapBaker::get_lightmap_energy_scale);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "lightmap_energy_scale", PROPERTY_HINT_RANGE, "0,8,0.01"), "set_lightmap_energy_scale", "get_lightmap_energy_scale");
+
+	ClassDB::bind_method(D_METHOD("set_ambient_energy", "energy"), &LightmapBaker::set_ambient_energy);
+	ClassDB::bind_method(D_METHOD("get_ambient_energy"), &LightmapBaker::get_ambient_energy);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ambient_energy", PROPERTY_HINT_RANGE, "0,1,0.001"), "set_ambient_energy", "get_ambient_energy");
+
+	ClassDB::bind_method(D_METHOD("set_use_material_albedo", "enabled"), &LightmapBaker::set_use_material_albedo);
+	ClassDB::bind_method(D_METHOD("get_use_material_albedo"), &LightmapBaker::get_use_material_albedo);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_material_albedo"), "set_use_material_albedo", "get_use_material_albedo");
+
+	ClassDB::bind_method(D_METHOD("set_use_lambert_normalization", "enabled"), &LightmapBaker::set_use_lambert_normalization);
+	ClassDB::bind_method(D_METHOD("get_use_lambert_normalization"), &LightmapBaker::get_use_lambert_normalization);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_lambert_normalization"), "set_use_lambert_normalization", "get_use_lambert_normalization");
 
 	ClassDB::bind_method(D_METHOD("set_use_denoiser", "enabled"), &LightmapBaker::set_use_denoiser);
 	ClassDB::bind_method(D_METHOD("get_use_denoiser"), &LightmapBaker::get_use_denoiser);
@@ -192,12 +213,52 @@ int LightmapBaker::get_atlas_padding() const {
 	return atlas_padding;
 }
 
+void LightmapBaker::set_seam_dilation_radius(int p_radius) {
+	seam_dilation_radius = p_radius;
+}
+
+int LightmapBaker::get_seam_dilation_radius() const {
+	return seam_dilation_radius;
+}
+
 void LightmapBaker::set_texel_scale(float p_scale) {
 	texel_scale = p_scale;
 }
 
 float LightmapBaker::get_texel_scale() const {
 	return texel_scale;
+}
+
+void LightmapBaker::set_lightmap_energy_scale(float p_scale) {
+	lightmap_energy_scale = p_scale;
+}
+
+float LightmapBaker::get_lightmap_energy_scale() const {
+	return lightmap_energy_scale;
+}
+
+void LightmapBaker::set_ambient_energy(float p_energy) {
+	ambient_energy = p_energy;
+}
+
+float LightmapBaker::get_ambient_energy() const {
+	return ambient_energy;
+}
+
+void LightmapBaker::set_use_material_albedo(bool p_enabled) {
+	use_material_albedo = p_enabled;
+}
+
+bool LightmapBaker::get_use_material_albedo() const {
+	return use_material_albedo;
+}
+
+void LightmapBaker::set_use_lambert_normalization(bool p_enabled) {
+	use_lambert_normalization = p_enabled;
+}
+
+bool LightmapBaker::get_use_lambert_normalization() const {
+	return use_lambert_normalization;
 }
 
 void LightmapBaker::set_use_denoiser(bool p_enabled) {
@@ -471,7 +532,8 @@ LightmapBaker::BakeError LightmapBaker::_bake_direct_light(Ref<LightmapGIData> p
 			return BAKE_ERROR_CANT_CREATE_IMAGE;
 		}
 
-		img->fill(Color(0, 0, 0, 1));
+		// Alpha is used as a coverage mask: 0=empty texel (outside UV2 islands), 1=valid.
+		img->fill(Color(0, 0, 0, 0));
 		_rasterize_mesh_direct_lighting(gathered_meshes[(size_t)i], img);
 		mesh_lightmaps.set(i, img);
 	}
@@ -492,7 +554,7 @@ LightmapBaker::BakeError LightmapBaker::_bake_direct_light(Ref<LightmapGIData> p
 	}
 
 	_report_progress(0.75f, "Dilating seams...", p_progress, p_userdata);
-	_dilate_lightmaps(mesh_lightmaps, 2);
+	_dilate_lightmaps(mesh_lightmaps, std::max(0, seam_dilation_radius));
 
 	// Update atlas pixel data in-place (layout/UV scale doesn't change with bounces/dilation).
 	_report_progress(0.8f, "Updating atlas layers...", p_progress, p_userdata);
@@ -541,6 +603,15 @@ LightmapBaker::BakeError LightmapBaker::_bake_direct_light(Ref<LightmapGIData> p
 	}
 
 	_report_progress(0.85f, "Creating Texture2DArray...", p_progress, p_userdata);
+	// Drop the alpha coverage mask before uploading (kept only for dilation during baking).
+	for (int i = 0; i < atlas_layers.size(); i++) {
+		if (atlas_layers[i].is_null() || atlas_layers[i]->is_empty()) {
+			continue;
+		}
+		if (atlas_layers[i]->get_format() != Image::FORMAT_RGBH) {
+			atlas_layers[i]->convert(Image::FORMAT_RGBH);
+		}
+	}
 	Ref<Texture2DArray> tex_array = _create_texture_array_from_images(atlas_layers);
 	if (tex_array.is_null()) {
 		UtilityFunctions::push_error("Failed to create Texture2DArray from atlas layers");
@@ -567,7 +638,7 @@ LightmapBaker::BakeError LightmapBaker::_bake_indirect_light(Vector<Ref<Image>> 
 		for (int i = 0; i < p_lightmaps.size(); i++) {
 			Ref<Image> img = _create_lightmap_image(p_lightmaps[i]->get_width(), p_lightmaps[i]->get_height());
 			if (img.is_null()) return BAKE_ERROR_CANT_CREATE_IMAGE;
-			img->fill(Color(0, 0, 0, 1));
+			img->fill(Color(0, 0, 0, 0));
 			bounce_light.set(i, img);
 		}
 
@@ -617,8 +688,8 @@ LightmapBaker::BakeError LightmapBaker::_bake_indirect_light(Vector<Ref<Image>> 
 			}
 		}
 
-		// Dilate to smooth
-		_dilate_lightmaps(bounce_light, 1);
+		// Dilate empty texels around UV islands (0 disables).
+		_dilate_lightmaps(bounce_light, seam_dilation_radius > 0 ? 1 : 0);
 
 		// Accumulate with falloff
 		float bounce_energy = bounce_indirect_energy * Math::pow(0.5f, (float)(bounce + 1));
@@ -638,7 +709,7 @@ LightmapBaker::BakeError LightmapBaker::_bake_indirect_light(Vector<Ref<Image>> 
 				for (int x = 0; x < dst->get_width(); x++) {
 					Color direct = dst->get_pixel(x, y);
 					Color bounce = src->get_pixel(x, y) * bounce_energy;
-					Color result(direct.r + bounce.r, direct.g + bounce.g, direct.b + bounce.b, 1.0f);
+					Color result(direct.r + bounce.r, direct.g + bounce.g, direct.b + bounce.b, direct.a);
 					dst->set_pixel(x, y, result);
 				}
 			}
@@ -719,7 +790,8 @@ Ref<Image> LightmapBaker::_create_lightmap_image(int p_width, int p_height) {
 	if (p_width <= 0 || p_height <= 0) {
 		return Ref<Image>();
 	}
-	Ref<Image> img = Image::create(p_width, p_height, false, Image::FORMAT_RGBH);
+	// RGBAH so alpha can be used as a coverage mask for dilation.
+	Ref<Image> img = Image::create(p_width, p_height, false, Image::FORMAT_RGBAH);
 	if (img.is_null() || img->is_empty()) {
 		UtilityFunctions::push_error("LightmapBaker: failed to create Image (" + String::num_int64(p_width) + "x" + String::num_int64(p_height) + ")");
 		return Ref<Image>();
@@ -809,7 +881,7 @@ Vector<Ref<Image>> LightmapBaker::_pack_lightmaps_to_atlas(std::vector<MeshData>
 		if (atlas.is_null() || atlas->is_empty()) {
 			return Vector<Ref<Image>>();
 		}
-		atlas->fill(Color(0, 0, 0, 1));
+		atlas->fill(Color(0, 0, 0, 0));
 		atlas_layers.set(s, atlas);
 	}
 
@@ -917,6 +989,14 @@ void LightmapBaker::_rasterize_mesh_direct_lighting(const MeshData &p_mesh, Ref<
 	const int w = p_target->get_width();
 	const int h = p_target->get_height();
 
+	Color surface_albedo(1, 1, 1, 1);
+	if (use_material_albedo && p_mesh.material.is_valid()) {
+		BaseMaterial3D *bm = Object::cast_to<BaseMaterial3D>(p_mesh.material.ptr());
+		if (bm != nullptr) {
+			surface_albedo = bm->get_albedo();
+		}
+	}
+
 	const int vertex_count = p_mesh.vertices.size();
 	if (vertex_count < 3 || p_mesh.uv2s.size() != vertex_count) {
 		return;
@@ -969,6 +1049,10 @@ void LightmapBaker::_rasterize_mesh_direct_lighting(const MeshData &p_mesh, Ref<
 				Vector3 world_pos = v0 * w0 + v1 * w1 + v2 * w2;
 				Vector3 world_nrm = (n0 * w0 + n1 * w1 + n2 * w2).normalized();
 				Color lit = _evaluate_direct_lighting(world_pos, world_nrm);
+				lit.r *= surface_albedo.r;
+				lit.g *= surface_albedo.g;
+				lit.b *= surface_albedo.b;
+				lit.a = 1.0f;
 				p_target->set_pixel(x, y, lit);
 			}
 		}
@@ -993,7 +1077,8 @@ void LightmapBaker::_rasterize_mesh_direct_lighting(const MeshData &p_mesh, Ref<
 }
 
 Color LightmapBaker::_evaluate_direct_lighting(const Vector3 &p_world_pos, const Vector3 &p_world_normal) const {
-	Vector3 accum(0.03f, 0.03f, 0.03f);
+	const float amb = std::max(0.0f, ambient_energy);
+	Vector3 accum(amb, amb, amb);
 	Vector3 n = p_world_normal.normalized();
 
 	for (const LightData &l : gathered_lights) {
@@ -1029,6 +1114,9 @@ Color LightmapBaker::_evaluate_direct_lighting(const Vector3 &p_world_pos, const
 		if (ndotl <= 0.0f) {
 			continue;
 		}
+		if (use_lambert_normalization) {
+			ndotl *= (float)(1.0 / Math_PI);
+		}
 		if (use_shadowing && l.cast_shadow) {
 			if (_is_shadowed(p_world_pos, n, l)) {
 				continue;
@@ -1038,6 +1126,7 @@ Color LightmapBaker::_evaluate_direct_lighting(const Vector3 &p_world_pos, const
 		accum += col * (l.energy * ndotl * atten);
 	}
 
+	accum *= std::max(0.0f, lightmap_energy_scale);
 	return Color(accum.x, accum.y, accum.z, 1.0f);
 }
 

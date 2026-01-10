@@ -118,10 +118,40 @@
 				Returns the padding in pixels around each lightmap in the atlas (default: 2).
 			</description>
 		</method>
+		<method name="get_seam_dilation_radius">
+			<return type="int" />
+			<description>
+				Returns the seam dilation radius in pixels (default: 2). Set to 0 to disable dilation.
+			</description>
+		</method>
 		<method name="get_texel_scale">
 			<return type="float" />
 			<description>
 				Returns the global texel scale multiplier applied to all mesh lightmap size hints.
+			</description>
+		</method>
+		<method name="get_lightmap_energy_scale">
+			<return type="float" />
+			<description>
+				Returns the overall multiplier applied to baked lighting (default: 1.0). Useful to match the perceived brightness of runtime lighting.
+			</description>
+		</method>
+		<method name="get_ambient_energy">
+			<return type="float" />
+			<description>
+				Returns a simple ambient term added to baked lighting before scaling (default: 0.0).
+			</description>
+		</method>
+		<method name="get_use_material_albedo">
+			<return type="bool" />
+			<description>
+				Returns whether baked lighting is multiplied by the surface material albedo color when available (default: true).
+			</description>
+		</method>
+		<method name="get_use_lambert_normalization">
+			<return type="bool" />
+			<description>
+				Returns whether a Lambert diffuse normalization factor (1/PI) is applied (default: true). This often makes baked results closer to PBR runtime brightness.
 			</description>
 		</method>
 		<method name="get_use_denoiser">
@@ -192,11 +222,47 @@
 				Sets the padding in pixels around each lightmap in the atlas (default: 2). Larger padding reduces seam artifacts but uses more memory.
 			</description>
 		</method>
+		<method name="set_seam_dilation_radius">
+			<return type="void" />
+			<param index="0" name="radius" type="int" />
+			<description>
+				Sets the seam dilation radius in pixels (default: 2). This fills empty texels around UV2 islands so filtering does not pull in black texels at edges.
+				Set to 0 to disable (may cause visible seams).
+			</description>
+		</method>
 		<method name="set_texel_scale">
 			<return type="void" />
 			<param index="0" name="scale" type="float" />
 			<description>
 				Sets a global texel scale multiplier (default: 1.0) applied to all mesh lightmap size hints. Useful for fast iteration (e.g., 0.5 for half resolution).
+			</description>
+		</method>
+		<method name="set_lightmap_energy_scale">
+			<return type="void" />
+			<param index="0" name="scale" type="float" />
+			<description>
+				Sets an overall multiplier applied to baked lighting (default: 1.0). If your baked result looks ~2× brighter than the runtime dynamic-light look, try 0.5.
+			</description>
+		</method>
+		<method name="set_ambient_energy">
+			<return type="void" />
+			<param index="0" name="energy" type="float" />
+			<description>
+				Sets a simple ambient term added to baked lighting before scaling (default: 0.0).
+			</description>
+		</method>
+		<method name="set_use_material_albedo">
+			<return type="void" />
+			<param index="0" name="enabled" type="bool" />
+			<description>
+				If enabled, multiplies baked lighting by the surface material albedo color (BaseMaterial3D only). This helps match the runtime look for non-white materials.
+			</description>
+		</method>
+		<method name="set_use_lambert_normalization">
+			<return type="void" />
+			<param index="0" name="enabled" type="bool" />
+			<description>
+				If enabled, applies a Lambert diffuse normalization factor (1/PI). If your baked result looks consistently too bright, keep this enabled.
 			</description>
 		</method>
 		<method name="set_use_denoiser">
