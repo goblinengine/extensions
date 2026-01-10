@@ -21,6 +21,7 @@
 #include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/variant/transform3d.hpp>
 #include <vector>
+#include <cstdint>
 
 namespace godot {
 
@@ -117,6 +118,10 @@ public:
 	void set_use_shadowing(bool p_enabled);
 	bool get_use_shadowing() const;
 
+	// Mesh filtering
+	void set_mesh_layer_mask(uint32_t p_mask);
+	uint32_t get_mesh_layer_mask() const;
+
 	void set_denoiser_strength(float p_strength);
 	float get_denoiser_strength() const;
 
@@ -147,6 +152,7 @@ private:
 	bool use_denoiser = true;
 	float denoiser_strength = 0.1f;
 	bool use_shadowing = true;
+	uint32_t mesh_layer_mask = 0xFFFFFFFFu;
 
 	// State during bake
 	std::vector<MeshData> gathered_meshes;

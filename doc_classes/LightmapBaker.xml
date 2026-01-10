@@ -92,6 +92,14 @@
 				Returns the number of meshes with UV2 coordinates found in the most recent bake. Useful for debugging.
 			</description>
 		</method>
+		<method name="get_mesh_layer_mask">
+			<return type="int" />
+			<description>
+				Returns the render layer mask used to filter which [MeshInstance3D] nodes are included in the bake.
+
+				A mesh is included if [code](mesh.layer_mask &amp; mesh_layer_mask) != 0[/code].
+			</description>
+		</method>
 		<method name="get_max_texture_size">
 			<return type="int" />
 			<description>
@@ -196,6 +204,15 @@
 			<param index="0" name="enabled" type="bool" />
 			<description>
 				Enables or disables denoising (currently a stub for future integration).
+			</description>
+		</method>
+		<method name="set_mesh_layer_mask">
+			<return type="void" />
+			<param index="0" name="mask" type="int" />
+			<description>
+				Sets the render layer mask used to filter which [MeshInstance3D] nodes are included in the bake.
+
+				Default is all layers.
 			</description>
 		</method>
 		<method name="set_use_shadowing">

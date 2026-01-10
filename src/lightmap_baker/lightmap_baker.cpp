@@ -100,6 +100,10 @@ void LightmapBaker::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_use_shadowing", "enabled"), &LightmapBaker::set_use_shadowing);
 	ClassDB::bind_method(D_METHOD("get_use_shadowing"), &LightmapBaker::get_use_shadowing);
 
+	ClassDB::bind_method(D_METHOD("set_mesh_layer_mask", "mask"), &LightmapBaker::set_mesh_layer_mask);
+	ClassDB::bind_method(D_METHOD("get_mesh_layer_mask"), &LightmapBaker::get_mesh_layer_mask);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_layer_mask", PROPERTY_HINT_LAYERS_3D_RENDER), "set_mesh_layer_mask", "get_mesh_layer_mask");
+
 	// Main bake methods
 	ClassDB::bind_method(D_METHOD("bake", "from_node", "output_data"), &LightmapBaker::bake);
 	ClassDB::bind_method(D_METHOD("get_gathered_mesh_count"), &LightmapBaker::get_gathered_mesh_count);
@@ -146,6 +150,14 @@ void LightmapBaker::set_bounce_indirect_energy(float p_energy) {
 
 float LightmapBaker::get_bounce_indirect_energy() const {
 	return bounce_indirect_energy;
+}
+
+void LightmapBaker::set_mesh_layer_mask(uint32_t p_mask) {
+	mesh_layer_mask = p_mask;
+}
+
+uint32_t LightmapBaker::get_mesh_layer_mask() const {
+	return mesh_layer_mask;
 }
 
 void LightmapBaker::set_bias(float p_bias) {
@@ -290,6 +302,10 @@ void LightmapBaker::_find_meshes_and_lights(Node *p_at_node, std::vector<MeshDat
 }
 
 void LightmapBaker::_process_mesh_instance(MeshInstance3D *p_mesh, std::vector<MeshData> &r_meshes) {
+	if ((p_mesh->get_layer_mask() & mesh_layer_mask) == 0) {
+		return;
+	}
+
 	Ref<Mesh> mesh = p_mesh->get_mesh();
 	if (mesh.is_null()) {
 		return;
