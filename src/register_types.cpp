@@ -12,6 +12,10 @@
 
 #include "lightmap_baker/lightmap_baker.h"
 
+#include "compound_mesh_instance_3d.h"
+#include "compound_part_proxy.h"
+#include "compound_part_node.h"
+
 namespace godot {
 
 void initialize_extensions_module(ModuleInitializationLevel p_level) {
@@ -20,6 +24,9 @@ void initialize_extensions_module(ModuleInitializationLevel p_level) {
 		ClassDB::register_class<SoundFontResource>();
 		ClassDB::register_class<MidiPlayer>();
 		ClassDB::register_class<LightmapBaker>();
+		ClassDB::register_class<CompoundMeshInstance3D>();
+		ClassDB::register_class<CompoundPartProxy>();
+		ClassDB::register_class<CompoundPartNode3D>();
 	}
 	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
 		ClassDB::register_class<MidiImporter>();
