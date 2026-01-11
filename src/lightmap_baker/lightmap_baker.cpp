@@ -824,9 +824,6 @@ LightmapBaker::BakeError LightmapBaker::bake_with_progress(Node *p_from_node, Re
 		return BAKE_ERROR_NO_MESHES;
 	}
 
-	UtilityFunctions::print("Found ", (int)gathered_meshes.size(), " meshes with lightmap UVs");
-	UtilityFunctions::print("Found ", (int)gathered_lights.size(), " lights");
-
 	// Validate meshes
 	if (!_validate_meshes(gathered_meshes)) {
 		return BAKE_ERROR_MESHES_INVALID;
@@ -914,7 +911,7 @@ void LightmapBaker::_process_mesh_instance(MeshInstance3D *p_mesh, std::vector<M
 	}
 
 	if (!has_uv2) {
-		UtilityFunctions::print("Mesh ", p_mesh->get_name(), " has no UV2 channel, skipping");
+		// Not an error; we intentionally skip meshes that can't be baked.
 		return;
 	}
 
@@ -1424,7 +1421,6 @@ Vector<Ref<Image>> LightmapBaker::_pack_lightmaps_to_atlas(std::vector<MeshData>
 
 // Utility
 void LightmapBaker::_report_progress(float p_progress, const String &p_status, BakeProgressFunc p_callback, void *p_userdata) {
-	UtilityFunctions::print("[", String::num(p_progress * 100.0f, 1), "%] ", p_status);
 	if (p_callback != nullptr) {
 		p_callback(p_progress, p_status, p_userdata);
 	}
