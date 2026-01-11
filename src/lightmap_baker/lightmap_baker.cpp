@@ -421,6 +421,10 @@ void LightmapBaker::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_use_shadowing", "enabled"), &LightmapBaker::set_use_shadowing);
 	ClassDB::bind_method(D_METHOD("get_use_shadowing"), &LightmapBaker::get_use_shadowing);
 
+	ClassDB::bind_method(D_METHOD("set_auto_unwrap_uv2", "enabled"), &LightmapBaker::set_auto_unwrap_uv2);
+	ClassDB::bind_method(D_METHOD("get_auto_unwrap_uv2"), &LightmapBaker::get_auto_unwrap_uv2);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_unwrap_uv2"), "set_auto_unwrap_uv2", "get_auto_unwrap_uv2");
+
 	ClassDB::bind_method(D_METHOD("set_mesh_layer_mask", "mask"), &LightmapBaker::set_mesh_layer_mask);
 	ClassDB::bind_method(D_METHOD("get_mesh_layer_mask"), &LightmapBaker::get_mesh_layer_mask);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_layer_mask", PROPERTY_HINT_LAYERS_3D_RENDER), "set_mesh_layer_mask", "get_mesh_layer_mask");
@@ -722,6 +726,14 @@ bool LightmapBaker::get_use_shadowing() const {
 	return use_shadowing;
 }
 
+void LightmapBaker::set_auto_unwrap_uv2(bool p_enabled) {
+	auto_unwrap_uv2 = p_enabled;
+}
+
+bool LightmapBaker::get_auto_unwrap_uv2() const {
+	return auto_unwrap_uv2;
+}
+
 // Main bake entry point
 LightmapBaker::BakeError LightmapBaker::bake(Node *p_from_node, Ref<LightmapGIData> p_output_data) {
 	return bake_with_progress(p_from_node, p_output_data, nullptr, nullptr);
@@ -810,16 +822,35 @@ void LightmapBaker::_process_mesh_instance(MeshInstance3D *p_mesh, std::vector<M
 	}
 
 	// Check if mesh has UV2 (required for lightmapping)
-	bool has_uv2 = false;
-	for (int i = 0; i < mesh->get_surface_count(); i++) {
-		Array arrays = mesh->surface_get_arrays(i);
-		if (arrays.is_empty()) {
-			continue;
+	auto mesh_has_uv2 = [&]() {
+		for (int i = 0; i < mesh->get_surface_count(); i++) {
+			Array arrays = mesh->surface_get_arrays(i);
+			if (arrays.is_empty()) {
+				continue;
+			}
+			PackedVector2Array uv2 = arrays[Mesh::ARRAY_TEX_UV2];
+			if (!uv2.is_empty()) {
+				return true;
+			}
 		}
-		PackedVector2Array uv2 = arrays[Mesh::ARRAY_TEX_UV2];
-		if (!uv2.is_empty()) {
-			has_uv2 = true;
-			break;
+		return false;
+	};
+
+	bool has_uv2 = mesh_has_uv2();
+	if (!has_uv2 && auto_unwrap_uv2) {
+		Ref<ArrayMesh> array_mesh = mesh;
+		if (array_mesh.is_valid()) {
+			// NOTE: This modifies the mesh resource in-place.
+			// For most runtime chunk meshes that's desired; if you share a mesh across instances,
+			// it will gain UV2 everywhere.
+			const int err = LightmapBaker::lightmap_unwrap(array_mesh, Transform3D(), 0.0f);
+			if (err != OK) {
+				UtilityFunctions::push_warning("LightmapBaker: auto_unwrap_uv2 failed for mesh '" + p_mesh->get_name() + "' (err=" + String::num_int64(err) + ")");
+			} else {
+				has_uv2 = mesh_has_uv2();
+			}
+		} else {
+			UtilityFunctions::push_warning("LightmapBaker: auto_unwrap_uv2 is enabled but mesh '" + p_mesh->get_name() + "' is not an ArrayMesh; skipping");
 		}
 	}
 

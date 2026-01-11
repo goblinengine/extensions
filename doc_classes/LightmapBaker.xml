@@ -303,6 +303,21 @@
 				Enables or disables ray-traced shadow computation during baking (default: true). Disabling speeds up baking but loses shadow detail.
 			</description>
 		</method>
+		<method name="set_auto_unwrap_uv2">
+			<return type="void" />
+			<param index="0" name="enabled" type="bool" />
+			<description>
+				If enabled, meshes missing UV2 will be unwrapped automatically before baking, by calling [method LightmapBaker.lightmap_unwrap] on the mesh.
+
+				Only [ArrayMesh] resources are supported for auto-unwrapping. This modifies the mesh resource in-place.
+			</description>
+		</method>
+		<method name="get_auto_unwrap_uv2">
+			<return type="bool" />
+			<description>
+				Returns whether automatic UV2 unwrapping is enabled.
+			</description>
+		</method>
 	</methods>
 	<constants>
 		<constant name="BAKE_QUALITY_LOW" value="0" enum="BakeQuality">

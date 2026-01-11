@@ -137,6 +137,10 @@ public:
 	void set_use_shadowing(bool p_enabled);
 	bool get_use_shadowing() const;
 
+	// Optional: automatically generate UV2 for meshes that don't have it.
+	void set_auto_unwrap_uv2(bool p_enabled);
+	bool get_auto_unwrap_uv2() const;
+
 	// Mesh filtering
 	void set_mesh_layer_mask(uint32_t p_mask);
 	uint32_t get_mesh_layer_mask() const;
@@ -182,6 +186,7 @@ private:
 	bool use_denoiser = true;
 	float denoiser_strength = 0.1f;
 	bool use_shadowing = true;
+	bool auto_unwrap_uv2 = false;
 	uint32_t mesh_layer_mask = 0xFFFFFFFFu;
 
 	// State during bake
