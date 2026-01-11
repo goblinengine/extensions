@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
+#include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/light3d.hpp>
 #include <godot_cpp/classes/lightmap_gi_data.hpp>
 #include <godot_cpp/classes/image.hpp>
@@ -145,6 +146,12 @@ public:
 
 	// Main bake function
 	BakeError bake(Node *p_from_node, Ref<LightmapGIData> p_output_data);
+
+	// UV2 generation only (does not bake).
+	// Static so you can call: LightmapBaker.lightmap_unwrap(mesh, xform, texel_size)
+	// Returns an Error code (OK on success).
+	// If p_texel_size <= 0, uses the project setting rendering/lightmapping/primitive_meshes/texel_size (fallback 0.1).
+	static int lightmap_unwrap(const Ref<ArrayMesh> &p_mesh, const Transform3D &p_transform, float p_texel_size = 0.0f);
 
 	// Advanced: Step-by-step baking with progress callback
 	BakeError bake_with_progress(Node *p_from_node, Ref<LightmapGIData> p_output_data,

@@ -32,12 +32,16 @@ sources = [
 
     # Lightmap baker component
     "src/lightmap_baker/lightmap_baker.cpp",
+
+    # Third-party: xatlas (runtime UV2 unwrapping)
+    "lib/xatlas/source/xatlas/xatlas.cpp",
 ]
 
 env.AppendUnique(CPPPATH=[
     "src",
     "src/midi_player",
     "lib/TinySoundFont",
+	"lib/xatlas/source/xatlas",
 ])
 
 if env["target"] in ["editor", "template_debug"]:

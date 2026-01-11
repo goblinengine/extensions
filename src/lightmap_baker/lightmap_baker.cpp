@@ -1,5 +1,7 @@
 #include "lightmap_baker.h"
 
+#include <xatlas.h>
+
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/math.hpp>
 
@@ -7,6 +9,8 @@
 
 #include <godot_cpp/classes/directional_light3d.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/array_mesh.hpp>
+#include <godot_cpp/classes/global_constants.hpp>
 #include <godot_cpp/classes/base_material3d.hpp>
 #include <godot_cpp/classes/image_texture_layered.hpp>
 #include <godot_cpp/classes/mesh.hpp>
@@ -18,7 +22,303 @@
 #include <algorithm>
 #include <cmath>
 
+#include <mutex>
+#include <unordered_map>
+
 namespace godot {
+
+namespace {
+
+static inline uint64_t _lm_mix64(uint64_t x) {
+	x ^= x >> 33;
+	x *= 0xff51afd7ed558ccdULL;
+	x ^= x >> 33;
+	x *= 0xc4ceb9fe1a85ec53ULL;
+	x ^= x >> 33;
+	return x;
+}
+
+struct _LM_UnwrapCacheKey {
+	uint64_t a = 0;
+	uint64_t b = 0;
+	bool operator==(const _LM_UnwrapCacheKey &o) const { return a == o.a && b == o.b; }
+};
+
+struct _LM_UnwrapCacheKeyHash {
+	size_t operator()(const _LM_UnwrapCacheKey &k) const {
+		uint64_t x = k.a ^ (k.b + 0x9e3779b97f4a7c15ULL + (k.a << 6) + (k.a >> 2));
+		return (size_t)_lm_mix64(x);
+	}
+};
+
+struct _LM_UnwrapCacheEntry {
+	PackedInt32Array xrefs;
+	PackedVector2Array uv2;
+	PackedInt32Array indices;
+	Vector2i size_hint;
+};
+
+static std::mutex _lm_unwrap_cache_mutex;
+static std::unordered_map<_LM_UnwrapCacheKey, _LM_UnwrapCacheEntry, _LM_UnwrapCacheKeyHash> _lm_unwrap_cache;
+
+static PackedInt32Array _lm_build_triangle_indices(const PackedVector3Array &p_vertices, const PackedInt32Array &p_indices) {
+	if (!p_indices.is_empty()) {
+		return p_indices;
+	}
+	const int vertex_count = p_vertices.size();
+	if (vertex_count < 3 || (vertex_count % 3) != 0) {
+		return PackedInt32Array();
+	}
+	PackedInt32Array indices;
+	indices.resize(vertex_count);
+	for (int i = 0; i < vertex_count; i++) {
+		indices.set(i, i);
+	}
+	return indices;
+}
+
+static PackedVector3Array _lm_compute_vertex_normals(const PackedVector3Array &p_vertices, const PackedInt32Array &p_indices) {
+	const int vertex_count = p_vertices.size();
+	PackedVector3Array normals;
+	normals.resize(vertex_count);
+	for (int i = 0; i < vertex_count; i++) {
+		normals.set(i, Vector3());
+	}
+
+	const int index_count = p_indices.size();
+	for (int i = 0; i + 2 < index_count; i += 3) {
+		const int i0 = p_indices[i + 0];
+		const int i1 = p_indices[i + 1];
+		const int i2 = p_indices[i + 2];
+		if (i0 < 0 || i1 < 0 || i2 < 0 || i0 >= vertex_count || i1 >= vertex_count || i2 >= vertex_count) {
+			continue;
+		}
+		const Vector3 v0 = p_vertices[i0];
+		const Vector3 v1 = p_vertices[i1];
+		const Vector3 v2 = p_vertices[i2];
+		const Vector3 n = (v1 - v0).cross(v2 - v0);
+		normals.set(i0, normals[i0] + n);
+		normals.set(i1, normals[i1] + n);
+		normals.set(i2, normals[i2] + n);
+	}
+
+	for (int i = 0; i < vertex_count; i++) {
+		Vector3 n = normals[i];
+		const float len = n.length();
+		if (len > 1e-8f) {
+			normals.set(i, n / len);
+		} else {
+			normals.set(i, Vector3(0, 1, 0));
+		}
+	}
+	return normals;
+}
+
+static void _lm_remap_surface_attributes_by_xref(Array &p_dst_arrays, const Array &p_src_arrays, const PackedInt32Array &p_xrefs, int p_original_vertex_count) {
+	const int new_vcount = p_xrefs.size();
+	if (new_vcount <= 0 || p_original_vertex_count <= 0) {
+		return;
+	}
+	if (p_dst_arrays.size() < Mesh::ARRAY_MAX || p_src_arrays.size() < Mesh::ARRAY_MAX) {
+		return;
+	}
+
+	// UV1
+	{
+		PackedVector2Array uv = p_src_arrays[Mesh::ARRAY_TEX_UV];
+		if (uv.size() == p_original_vertex_count) {
+			PackedVector2Array out;
+			out.resize(new_vcount);
+			for (int i = 0; i < new_vcount; i++) {
+				const int xref = p_xrefs[i];
+				out.set(i, (xref >= 0 && xref < p_original_vertex_count) ? uv[xref] : Vector2());
+			}
+			p_dst_arrays[Mesh::ARRAY_TEX_UV] = out;
+		}
+	}
+
+	// Vertex colors
+	{
+		PackedColorArray col = p_src_arrays[Mesh::ARRAY_COLOR];
+		if (col.size() == p_original_vertex_count) {
+			PackedColorArray out;
+			out.resize(new_vcount);
+			for (int i = 0; i < new_vcount; i++) {
+				const int xref = p_xrefs[i];
+				out.set(i, (xref >= 0 && xref < p_original_vertex_count) ? col[xref] : Color(1, 1, 1, 1));
+			}
+			p_dst_arrays[Mesh::ARRAY_COLOR] = out;
+		}
+	}
+
+	// Tangents (4 floats per vertex)
+	{
+		PackedFloat32Array tan = p_src_arrays[Mesh::ARRAY_TANGENT];
+		if (tan.size() == p_original_vertex_count * 4) {
+			PackedFloat32Array out;
+			out.resize(new_vcount * 4);
+			for (int i = 0; i < new_vcount; i++) {
+				const int xref = p_xrefs[i];
+				const int src = (xref >= 0 && xref < p_original_vertex_count) ? (xref * 4) : 0;
+				const int dst = i * 4;
+				out.set(dst + 0, tan[src + 0]);
+				out.set(dst + 1, tan[src + 1]);
+				out.set(dst + 2, tan[src + 2]);
+				out.set(dst + 3, tan[src + 3]);
+			}
+			p_dst_arrays[Mesh::ARRAY_TANGENT] = out;
+		}
+	}
+}
+
+static bool _lm_xatlas_unwrap(float p_texel_size,
+		const PackedVector3Array &p_positions_for_unwrap,
+		const PackedVector3Array &p_normals_for_unwrap,
+		const PackedInt32Array &p_tri_indices,
+		PackedInt32Array &r_out_xrefs,
+		PackedVector2Array &r_out_uv2,
+		PackedInt32Array &r_out_indices,
+		Vector2i &r_out_size_hint) {
+	const int vertex_count = p_positions_for_unwrap.size();
+	if (vertex_count < 3) {
+		return false;
+	}
+	if (p_tri_indices.is_empty() || (p_tri_indices.size() % 3) != 0) {
+		return false;
+	}
+	ERR_FAIL_COND_V_MSG(p_texel_size <= 0.0f, false, "Texel size must be greater than 0.");
+
+	uint64_t tex_bits = 0;
+	static_assert(sizeof(float) == sizeof(uint32_t), "unexpected float size");
+	memcpy(&tex_bits, &p_texel_size, sizeof(uint32_t));
+	const uint64_t a = (uint64_t)(uintptr_t)p_positions_for_unwrap.ptr() ^ ((uint64_t)vertex_count << 32) ^ tex_bits;
+	const uint64_t b = (uint64_t)(uintptr_t)p_tri_indices.ptr() ^ ((uint64_t)p_tri_indices.size() << 32) ^ (uint64_t)(uintptr_t)p_normals_for_unwrap.ptr();
+	_LM_UnwrapCacheKey key;
+	key.a = _lm_mix64(a);
+	key.b = _lm_mix64(b);
+	{
+		std::lock_guard<std::mutex> lock(_lm_unwrap_cache_mutex);
+		auto it = _lm_unwrap_cache.find(key);
+		if (it != _lm_unwrap_cache.end()) {
+			r_out_xrefs = it->second.xrefs;
+			r_out_uv2 = it->second.uv2;
+			r_out_indices = it->second.indices;
+			r_out_size_hint = it->second.size_hint;
+			return true;
+		}
+	}
+
+	// xatlas expects float triples. In float builds, Vector3 is 3 floats so we can pass it directly.
+	const void *pos_ptr = nullptr;
+	const void *nrm_ptr = nullptr;
+	uint32_t pos_stride = 0;
+	uint32_t nrm_stride = 0;
+
+#ifdef REAL_T_IS_DOUBLE
+	thread_local std::vector<float> pos_f;
+	thread_local std::vector<float> nrm_f;
+	pos_f.resize((size_t)vertex_count * 3);
+	nrm_f.resize((size_t)vertex_count * 3);
+	for (int i = 0; i < vertex_count; i++) {
+		const Vector3 v = p_positions_for_unwrap[i];
+		pos_f[(size_t)i * 3 + 0] = (float)v.x;
+		pos_f[(size_t)i * 3 + 1] = (float)v.y;
+		pos_f[(size_t)i * 3 + 2] = (float)v.z;
+		const Vector3 n = p_normals_for_unwrap[i];
+		nrm_f[(size_t)i * 3 + 0] = (float)n.x;
+		nrm_f[(size_t)i * 3 + 1] = (float)n.y;
+		nrm_f[(size_t)i * 3 + 2] = (float)n.z;
+	}
+	pos_ptr = pos_f.data();
+	nrm_ptr = nrm_f.data();
+	pos_stride = sizeof(float) * 3;
+	nrm_stride = sizeof(float) * 3;
+#else
+	static_assert(sizeof(Vector3) == sizeof(float) * 3, "Vector3 must be 3 floats in float builds");
+	pos_ptr = p_positions_for_unwrap.ptr();
+	nrm_ptr = p_normals_for_unwrap.ptr();
+	pos_stride = sizeof(Vector3);
+	nrm_stride = sizeof(Vector3);
+#endif
+
+	xatlas::MeshDecl input_mesh;
+	input_mesh.indexData = p_tri_indices.ptr();
+	input_mesh.indexCount = (uint32_t)p_tri_indices.size();
+	input_mesh.indexFormat = xatlas::IndexFormat::UInt32;
+	input_mesh.vertexCount = (uint32_t)vertex_count;
+	input_mesh.vertexPositionData = pos_ptr;
+	input_mesh.vertexPositionStride = pos_stride;
+	input_mesh.vertexNormalData = nrm_ptr;
+	input_mesh.vertexNormalStride = nrm_stride;
+	input_mesh.vertexUvData = nullptr;
+	input_mesh.vertexUvStride = 0;
+
+	xatlas::ChartOptions chart_options;
+	chart_options.fixWinding = true;
+
+	xatlas::PackOptions pack_options;
+	pack_options.padding = 1;
+	pack_options.maxChartSize = 4094;
+	pack_options.blockAlign = true;
+	pack_options.texelsPerUnit = 1.0f / p_texel_size;
+
+	xatlas::Atlas *atlas = xatlas::Create();
+	if (!atlas) {
+		return false;
+	}
+
+	xatlas::AddMeshError err = xatlas::AddMesh(atlas, input_mesh, 1);
+	if (err != xatlas::AddMeshError::Success) {
+		xatlas::Destroy(atlas);
+		return false;
+	}
+
+	xatlas::Generate(atlas, chart_options, pack_options);
+
+	const int w = (int)atlas->width;
+	const int h = (int)atlas->height;
+	r_out_size_hint = Vector2i(w, h);
+	if (w == 0 || h == 0) {
+		xatlas::Destroy(atlas);
+		return false;
+	}
+
+	const xatlas::Mesh &output = atlas->meshes[0];
+	if (output.vertexCount == 0 || output.indexCount == 0) {
+		xatlas::Destroy(atlas);
+		return false;
+	}
+
+	r_out_xrefs.resize((int)output.vertexCount);
+	r_out_uv2.resize((int)output.vertexCount);
+	r_out_indices.resize((int)output.indexCount);
+	for (uint32_t i = 0; i < output.vertexCount; i++) {
+		r_out_xrefs.set((int)i, (int)output.vertexArray[i].xref);
+		// Normalize UVs to 0..1 by atlas dimensions, like Godot.
+		const float u = output.vertexArray[i].uv[0] / (float)w;
+		const float v = output.vertexArray[i].uv[1] / (float)h;
+		r_out_uv2.set((int)i, Vector2(u, v));
+	}
+	for (uint32_t i = 0; i < output.indexCount; i++) {
+		r_out_indices.set((int)i, (int)output.indexArray[i]);
+	}
+
+	xatlas::Destroy(atlas);
+
+	{
+		_LM_UnwrapCacheEntry entry;
+		entry.xrefs = r_out_xrefs;
+		entry.uv2 = r_out_uv2;
+		entry.indices = r_out_indices;
+		entry.size_hint = r_out_size_hint;
+		std::lock_guard<std::mutex> lock(_lm_unwrap_cache_mutex);
+		_lm_unwrap_cache.emplace(key, entry);
+	}
+
+	return true;
+}
+
+} // namespace
 
 struct _LM_RayTri {
 	Vector3 a;
@@ -127,6 +427,7 @@ void LightmapBaker::_bind_methods() {
 
 	// Main bake methods
 	ClassDB::bind_method(D_METHOD("bake", "from_node", "output_data"), &LightmapBaker::bake);
+	ClassDB::bind_static_method(get_class_static(), D_METHOD("lightmap_unwrap", "mesh", "transform", "texel_size"), &LightmapBaker::lightmap_unwrap, DEFVAL(0.0f));
 	ClassDB::bind_method(D_METHOD("get_gathered_mesh_count"), &LightmapBaker::get_gathered_mesh_count);
 	ClassDB::bind_method(D_METHOD("get_gathered_light_count"), &LightmapBaker::get_gathered_light_count);
 
@@ -146,6 +447,142 @@ void LightmapBaker::_bind_methods() {
 	BIND_ENUM_CONSTANT(BAKE_ERROR_TEXTURE_SIZE_TOO_SMALL);
 	BIND_ENUM_CONSTANT(BAKE_ERROR_LIGHTMAP_TOO_SMALL);
 	BIND_ENUM_CONSTANT(BAKE_ERROR_ATLAS_TOO_SMALL);
+}
+
+int LightmapBaker::lightmap_unwrap(const Ref<ArrayMesh> &p_mesh, const Transform3D &p_transform, float p_texel_size) {
+	if (p_mesh.is_null()) {
+		UtilityFunctions::push_error("LightmapBaker::lightmap_unwrap: mesh is null");
+		return ERR_INVALID_PARAMETER;
+	}
+
+	float texel_size = p_texel_size;
+	if (!(texel_size > 0.0f)) {
+		ProjectSettings *ps = ProjectSettings::get_singleton();
+		if (ps != nullptr && ps->has_setting("rendering/lightmapping/primitive_meshes/texel_size")) {
+			texel_size = (float)ps->get_setting("rendering/lightmapping/primitive_meshes/texel_size");
+		}
+		if (!(texel_size > 0.0f)) {
+			texel_size = 0.1f;
+		}
+	}
+
+	struct _SurfaceTmp {
+		Mesh::PrimitiveType primitive = Mesh::PRIMITIVE_TRIANGLES;
+		Array arrays;
+		Ref<Material> material;
+		String name;
+	};
+	std::vector<_SurfaceTmp> rebuilt;
+	rebuilt.reserve((size_t)p_mesh->get_surface_count());
+
+	const bool is_identity = p_transform.is_equal_approx(Transform3D());
+	Vector2i computed_size_hint;
+
+	for (int surface_idx = 0; surface_idx < p_mesh->get_surface_count(); surface_idx++) {
+		Array arrays = p_mesh->surface_get_arrays(surface_idx);
+		if (arrays.is_empty() || arrays.size() < Mesh::ARRAY_MAX) {
+			continue;
+		}
+		PackedVector3Array vertices = arrays[Mesh::ARRAY_VERTEX];
+		PackedVector3Array normals = arrays[Mesh::ARRAY_NORMAL];
+		PackedInt32Array indices = arrays[Mesh::ARRAY_INDEX];
+		PackedVector2Array uv2_existing = arrays[Mesh::ARRAY_TEX_UV2];
+		if (vertices.is_empty()) {
+			continue;
+		}
+		if (!uv2_existing.is_empty() && uv2_existing.size() == vertices.size()) {
+			_SurfaceTmp tmp;
+			tmp.primitive = p_mesh->surface_get_primitive_type(surface_idx);
+			tmp.arrays = arrays;
+			tmp.material = p_mesh->surface_get_material(surface_idx);
+			tmp.name = p_mesh->surface_get_name(surface_idx);
+			rebuilt.push_back(tmp);
+			continue;
+		}
+
+		PackedInt32Array tri_indices = _lm_build_triangle_indices(vertices, indices);
+		if (tri_indices.is_empty() || (tri_indices.size() % 3) != 0) {
+			continue;
+		}
+		if (normals.size() != vertices.size()) {
+			normals = _lm_compute_vertex_normals(vertices, tri_indices);
+		}
+
+		PackedVector3Array unwrap_pos;
+		PackedVector3Array unwrap_nrm;
+		const PackedVector3Array *pos_for_unwrap = &vertices;
+		const PackedVector3Array *nrm_for_unwrap = &normals;
+		if (!is_identity) {
+			unwrap_pos.resize(vertices.size());
+			unwrap_nrm.resize(normals.size());
+			Basis nxf = p_transform.basis.inverse().transposed();
+			for (int i = 0; i < vertices.size(); i++) {
+				unwrap_pos.set(i, p_transform.xform(vertices[i]));
+				unwrap_nrm.set(i, nxf.xform(normals[i]).normalized());
+			}
+			pos_for_unwrap = &unwrap_pos;
+			nrm_for_unwrap = &unwrap_nrm;
+		}
+
+		PackedInt32Array out_xrefs;
+		PackedVector2Array out_uv2;
+		PackedInt32Array out_indices;
+		Vector2i out_hint;
+		if (!_lm_xatlas_unwrap(texel_size, *pos_for_unwrap, *nrm_for_unwrap, tri_indices, out_xrefs, out_uv2, out_indices, out_hint)) {
+			continue;
+		}
+		computed_size_hint.x = MAX(computed_size_hint.x, out_hint.x);
+		computed_size_hint.y = MAX(computed_size_hint.y, out_hint.y);
+
+		Array surface_arrays;
+		surface_arrays.resize(Mesh::ARRAY_MAX);
+		PackedVector3Array out_vertices;
+		PackedVector3Array out_normals;
+		out_vertices.resize(out_xrefs.size());
+		out_normals.resize(out_xrefs.size());
+		for (int i = 0; i < out_xrefs.size(); i++) {
+			const int xref = out_xrefs[i];
+			out_vertices.set(i, (xref >= 0 && xref < vertices.size()) ? vertices[xref] : Vector3());
+			out_normals.set(i, (xref >= 0 && xref < normals.size()) ? normals[xref] : Vector3(0, 1, 0));
+		}
+		surface_arrays[Mesh::ARRAY_VERTEX] = out_vertices;
+		surface_arrays[Mesh::ARRAY_NORMAL] = out_normals;
+		surface_arrays[Mesh::ARRAY_TEX_UV2] = out_uv2;
+		surface_arrays[Mesh::ARRAY_INDEX] = out_indices;
+		_lm_remap_surface_attributes_by_xref(surface_arrays, arrays, out_xrefs, vertices.size());
+
+		_SurfaceTmp tmp;
+		tmp.primitive = p_mesh->surface_get_primitive_type(surface_idx);
+		tmp.arrays = surface_arrays;
+		tmp.material = p_mesh->surface_get_material(surface_idx);
+		tmp.name = p_mesh->surface_get_name(surface_idx);
+		rebuilt.push_back(tmp);
+	}
+
+	if (rebuilt.empty()) {
+		return ERR_UNAVAILABLE;
+	}
+
+	p_mesh->clear_surfaces();
+	for (size_t i = 0; i < rebuilt.size(); i++) {
+		p_mesh->add_surface_from_arrays(rebuilt[i].primitive, rebuilt[i].arrays);
+		p_mesh->surface_set_material((int)i, rebuilt[i].material);
+		if (!rebuilt[i].name.is_empty()) {
+			p_mesh->surface_set_name((int)i, rebuilt[i].name);
+		}
+	}
+
+	// Propagate the unwrap size hint (critical for downstream baking/atlas packing).
+	if (computed_size_hint.x > 0 && computed_size_hint.y > 0) {
+		Vector2i existing_hint = p_mesh->get_lightmap_size_hint();
+		if (existing_hint.x <= 0 || existing_hint.y <= 0) {
+			p_mesh->set_lightmap_size_hint(computed_size_hint);
+		} else {
+			p_mesh->set_lightmap_size_hint(Vector2i(MAX(existing_hint.x, computed_size_hint.x), MAX(existing_hint.y, computed_size_hint.y)));
+		}
+	}
+
+	return OK;
 }
 
 // Configuration methods
