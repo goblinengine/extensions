@@ -63,6 +63,11 @@ class LightmapBaker : public RefCounted {
 	GDCLASS(LightmapBaker, RefCounted)
 
 public:
+	enum LightFalloffMode {
+		LIGHT_FALLOFF_LEGACY = 0,
+		LIGHT_FALLOFF_INVERSE_SQUARE = 1,
+	};
+
 	enum BakeQuality {
 		BAKE_QUALITY_LOW = 0,
 		BAKE_QUALITY_MEDIUM = 1,
@@ -131,11 +136,18 @@ public:
 	void set_use_lambert_normalization(bool p_enabled);
 	bool get_use_lambert_normalization() const;
 
-	void set_use_denoiser(bool p_enabled);
-	bool get_use_denoiser() const;
-
 	void set_use_shadowing(bool p_enabled);
 	bool get_use_shadowing() const;
+
+	// Light shading controls
+	void set_light_falloff_mode(LightFalloffMode p_mode);
+	LightFalloffMode get_light_falloff_mode() const;
+
+	// Optional: pull ambient light from the active World3D Environment.
+	void set_use_environment_ambient(bool p_enabled);
+	bool get_use_environment_ambient() const;
+	void set_environment_ambient_scale(float p_scale);
+	float get_environment_ambient_scale() const;
 
 	// Optional: automatically generate UV2 for meshes that don't have it.
 	void set_auto_unwrap_uv2(bool p_enabled);
@@ -144,9 +156,6 @@ public:
 	// Mesh filtering
 	void set_mesh_layer_mask(uint32_t p_mask);
 	uint32_t get_mesh_layer_mask() const;
-
-	void set_denoiser_strength(float p_strength);
-	float get_denoiser_strength() const;
 
 	// Main bake function
 	BakeError bake(Node *p_from_node, Ref<LightmapGIData> p_output_data);
@@ -183,9 +192,11 @@ private:
 	float ambient_energy = 0.0f;
 	bool use_material_albedo = true;
 	bool use_lambert_normalization = true;
-	bool use_denoiser = true;
-	float denoiser_strength = 0.1f;
 	bool use_shadowing = true;
+	LightFalloffMode light_falloff_mode = LIGHT_FALLOFF_LEGACY;
+	bool use_environment_ambient = false;
+	float environment_ambient_scale = 1.0f;
+	Vector3 baked_environment_ambient;
 	bool auto_unwrap_uv2 = false;
 	uint32_t mesh_layer_mask = 0xFFFFFFFFu;
 
@@ -206,11 +217,8 @@ private:
 	// Baking stages
 	BakeError _bake_direct_light(Ref<LightmapGIData> p_output_data, BakeProgressFunc p_progress = nullptr, void *p_userdata = nullptr);
 	BakeError _bake_indirect_light(Vector<Ref<Image>> &p_lightmaps, BakeProgressFunc p_progress = nullptr, void *p_userdata = nullptr);
-	BakeError _bake_light_probes(Ref<LightmapGIData> p_output_data, BakeProgressFunc p_progress = nullptr, void *p_userdata = nullptr);
 
 	// Post-processing
-	void _apply_seam_blending(Vector<Ref<Image>> &p_textures);
-	void _apply_denoising(Vector<Ref<Image>> &p_textures);
 	void _dilate_lightmaps(Vector<Ref<Image>> &p_lightmaps, int p_dilation_radius = 1);
 
 	// Texture management
@@ -227,16 +235,12 @@ private:
 
 	// Utility
 	void _report_progress(float p_progress, const String &p_status, BakeProgressFunc p_callback, void *p_userdata);
-	bool _check_cancel_requested();
-
-	// GPU resources (will be used in Phase 2)
-	// RID compute_pipeline;
-	// Vector<RID> gpu_textures;
 };
 
 } // namespace godot
 
 VARIANT_ENUM_CAST(godot::LightmapBaker::BakeQuality);
 VARIANT_ENUM_CAST(godot::LightmapBaker::BakeError);
+VARIANT_ENUM_CAST(godot::LightmapBaker::LightFalloffMode);
 
 #endif // LIGHTMAP_BAKER_H

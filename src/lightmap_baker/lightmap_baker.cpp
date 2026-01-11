@@ -11,6 +11,10 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/global_constants.hpp>
+#include <godot_cpp/classes/environment.hpp>
+#include <godot_cpp/classes/node3d.hpp>
+#include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/classes/base_material3d.hpp>
 #include <godot_cpp/classes/image_texture_layered.hpp>
 #include <godot_cpp/classes/mesh.hpp>
@@ -412,14 +416,20 @@ void LightmapBaker::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_use_lambert_normalization"), &LightmapBaker::get_use_lambert_normalization);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_lambert_normalization"), "set_use_lambert_normalization", "get_use_lambert_normalization");
 
-	ClassDB::bind_method(D_METHOD("set_use_denoiser", "enabled"), &LightmapBaker::set_use_denoiser);
-	ClassDB::bind_method(D_METHOD("get_use_denoiser"), &LightmapBaker::get_use_denoiser);
-
-	ClassDB::bind_method(D_METHOD("set_denoiser_strength", "strength"), &LightmapBaker::set_denoiser_strength);
-	ClassDB::bind_method(D_METHOD("get_denoiser_strength"), &LightmapBaker::get_denoiser_strength);
-
 	ClassDB::bind_method(D_METHOD("set_use_shadowing", "enabled"), &LightmapBaker::set_use_shadowing);
 	ClassDB::bind_method(D_METHOD("get_use_shadowing"), &LightmapBaker::get_use_shadowing);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_shadowing"), "set_use_shadowing", "get_use_shadowing");
+
+	ClassDB::bind_method(D_METHOD("set_light_falloff_mode", "mode"), &LightmapBaker::set_light_falloff_mode);
+	ClassDB::bind_method(D_METHOD("get_light_falloff_mode"), &LightmapBaker::get_light_falloff_mode);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "light_falloff_mode", PROPERTY_HINT_ENUM, "Legacy,InverseSquare"), "set_light_falloff_mode", "get_light_falloff_mode");
+
+	ClassDB::bind_method(D_METHOD("set_use_environment_ambient", "enabled"), &LightmapBaker::set_use_environment_ambient);
+	ClassDB::bind_method(D_METHOD("get_use_environment_ambient"), &LightmapBaker::get_use_environment_ambient);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_environment_ambient"), "set_use_environment_ambient", "get_use_environment_ambient");
+	ClassDB::bind_method(D_METHOD("set_environment_ambient_scale", "scale"), &LightmapBaker::set_environment_ambient_scale);
+	ClassDB::bind_method(D_METHOD("get_environment_ambient_scale"), &LightmapBaker::get_environment_ambient_scale);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "environment_ambient_scale", PROPERTY_HINT_RANGE, "0,8,0.01"), "set_environment_ambient_scale", "get_environment_ambient_scale");
 
 	ClassDB::bind_method(D_METHOD("set_auto_unwrap_uv2", "enabled"), &LightmapBaker::set_auto_unwrap_uv2);
 	ClassDB::bind_method(D_METHOD("get_auto_unwrap_uv2"), &LightmapBaker::get_auto_unwrap_uv2);
@@ -436,6 +446,9 @@ void LightmapBaker::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_gathered_light_count"), &LightmapBaker::get_gathered_light_count);
 
 	// Enums
+	BIND_ENUM_CONSTANT(LIGHT_FALLOFF_LEGACY);
+	BIND_ENUM_CONSTANT(LIGHT_FALLOFF_INVERSE_SQUARE);
+
 	BIND_ENUM_CONSTANT(BAKE_QUALITY_LOW);
 	BIND_ENUM_CONSTANT(BAKE_QUALITY_MEDIUM);
 	BIND_ENUM_CONSTANT(BAKE_QUALITY_HIGH);
@@ -702,28 +715,36 @@ bool LightmapBaker::get_use_lambert_normalization() const {
 	return use_lambert_normalization;
 }
 
-void LightmapBaker::set_use_denoiser(bool p_enabled) {
-	use_denoiser = p_enabled;
-}
-
-bool LightmapBaker::get_use_denoiser() const {
-	return use_denoiser;
-}
-
-void LightmapBaker::set_denoiser_strength(float p_strength) {
-	denoiser_strength = p_strength;
-}
-
-float LightmapBaker::get_denoiser_strength() const {
-	return denoiser_strength;
-}
-
 void LightmapBaker::set_use_shadowing(bool p_enabled) {
 	use_shadowing = p_enabled;
 }
 
 bool LightmapBaker::get_use_shadowing() const {
 	return use_shadowing;
+}
+
+void LightmapBaker::set_light_falloff_mode(LightFalloffMode p_mode) {
+	light_falloff_mode = p_mode;
+}
+
+LightmapBaker::LightFalloffMode LightmapBaker::get_light_falloff_mode() const {
+	return light_falloff_mode;
+}
+
+void LightmapBaker::set_use_environment_ambient(bool p_enabled) {
+	use_environment_ambient = p_enabled;
+}
+
+bool LightmapBaker::get_use_environment_ambient() const {
+	return use_environment_ambient;
+}
+
+void LightmapBaker::set_environment_ambient_scale(float p_scale) {
+	environment_ambient_scale = p_scale;
+}
+
+float LightmapBaker::get_environment_ambient_scale() const {
+	return environment_ambient_scale;
 }
 
 void LightmapBaker::set_auto_unwrap_uv2(bool p_enabled) {
@@ -754,6 +775,44 @@ LightmapBaker::BakeError LightmapBaker::bake_with_progress(Node *p_from_node, Re
 	gathered_meshes.clear();
 	gathered_lights.clear();
 	ray_meshes.clear();
+	baked_environment_ambient = Vector3();
+
+	// Cache environment ambient once per bake (optional).
+	if (use_environment_ambient) {
+		Ref<World3D> world;
+		if (Node3D *n3d = Object::cast_to<Node3D>(p_from_node)) {
+			world = n3d->get_world_3d();
+		}
+		if (world.is_null()) {
+			if (Viewport *vp = p_from_node->get_viewport()) {
+				world = vp->find_world_3d();
+			}
+		}
+		if (world.is_valid()) {
+			Ref<Environment> env = world->get_environment();
+			if (env.is_null()) {
+				env = world->get_fallback_environment();
+			}
+			if (env.is_valid()) {
+				Vector3 amb;
+				const Environment::AmbientSource src = env->get_ambient_source();
+				if (src == Environment::AMBIENT_SOURCE_DISABLED) {
+					amb = Vector3();
+				} else if (src == Environment::AMBIENT_SOURCE_COLOR) {
+					Color c = env->get_ambient_light_color();
+					float e = env->get_ambient_light_energy();
+					amb = Vector3(c.r, c.g, c.b) * MAX(0.0f, e);
+				} else {
+					// BG/SKY: we don't evaluate sky lighting here; approximate with Environment's configured ambient color.
+					Color c = env->get_ambient_light_color();
+					float e = env->get_ambient_light_energy();
+					amb = Vector3(c.r, c.g, c.b) * MAX(0.0f, e);
+				}
+
+				baked_environment_ambient = amb * MAX(0.0f, environment_ambient_scale);
+			}
+		}
+	}
 
 	_report_progress(0.0f, "Gathering meshes and lights...", p_progress_func, p_userdata);
 
@@ -1189,20 +1248,6 @@ LightmapBaker::BakeError LightmapBaker::_bake_indirect_light(Vector<Ref<Image>> 
 	return BAKE_ERROR_OK;
 }
 
-LightmapBaker::BakeError LightmapBaker::_bake_light_probes(Ref<LightmapGIData> p_output_data, BakeProgressFunc p_progress, void *p_userdata) {
-	// TODO: Implement light probe generation
-	return BAKE_ERROR_OK;
-}
-
-// Post-processing
-void LightmapBaker::_apply_seam_blending(Vector<Ref<Image>> &p_textures) {
-	// TODO: Implement seam blending
-}
-
-void LightmapBaker::_apply_denoising(Vector<Ref<Image>> &p_textures) {
-	// TODO: Implement denoising (could integrate with Intel OIDN)
-}
-
 void LightmapBaker::_dilate_lightmaps(Vector<Ref<Image>> &p_lightmaps, int p_dilation_radius) {
 	if (p_dilation_radius <= 0) return;
 
@@ -1385,11 +1430,6 @@ void LightmapBaker::_report_progress(float p_progress, const String &p_status, B
 	}
 }
 
-bool LightmapBaker::_check_cancel_requested() {
-	// TODO: Implement cancellation support
-	return false;
-}
-
 Ref<Texture2DArray> LightmapBaker::_create_texture_array_from_images(const Vector<Ref<Image>> &p_layers) {
 	if (p_layers.is_empty()) {
 		return Ref<Texture2DArray>();
@@ -1547,6 +1587,7 @@ void LightmapBaker::_rasterize_mesh_direct_lighting(const MeshData &p_mesh, Ref<
 Color LightmapBaker::_evaluate_direct_lighting(const Vector3 &p_world_pos, const Vector3 &p_world_normal) const {
 	const float amb = std::max(0.0f, ambient_energy);
 	Vector3 accum(amb, amb, amb);
+	accum += baked_environment_ambient;
 	Vector3 n = p_world_normal.normalized();
 
 	for (const LightData &l : gathered_lights) {
@@ -1564,8 +1605,22 @@ Color LightmapBaker::_evaluate_direct_lighting(const Vector3 &p_world_pos, const
 			L = to_light / dist;
 
 			float range = std::max(0.001f, l.range);
-			float x = std::max(0.0f, 1.0f - dist / range);
-			atten = Math::pow(x, std::max(0.0001f, l.attenuation));
+			if (dist > range) {
+				atten = 0.0f;
+			} else if (light_falloff_mode == LIGHT_FALLOFF_INVERSE_SQUARE) {
+				// Use the light's normal attenuation curve, but boost near-source brightness
+				float x = std::max(0.0f, 1.0f - dist / range);
+				atten = Math::pow(x, std::max(0.0001f, l.attenuation));
+				// Reduce overall brightness by 30%
+				atten *= 0.7f;
+				// Add concentrated near-source boost (stronger and more focused)
+				const float d = std::max(0.5f, dist);
+				const float boost_amount = (3.0f / d) * x * x * x;  // cubic falloff for more concentration
+				atten *= (1.0f + std::min(boost_amount, 6.5f));
+			} else {
+				float x = std::max(0.0f, 1.0f - dist / range);
+				atten = Math::pow(x, std::max(0.0001f, l.attenuation));
+			}
 
 			if (l.type == 2) {
 				float spot_dot = L.dot((-l.direction).normalized());

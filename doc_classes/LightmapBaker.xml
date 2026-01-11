@@ -181,6 +181,48 @@
 				Returns whether ray-traced shadow computation is enabled during baking.
 			</description>
 		</method>
+		<method name="set_light_falloff_mode">
+			<return type="void" />
+			<param index="0" name="mode" type="int" enum="LightmapBaker.LightFalloffMode" />
+			<description>
+				Controls how point/spot lights fade with distance in the bake.
+
+				- [constant LightmapBaker.LIGHT_FALLOFF_LEGACY]: Uses the current smooth range curve.
+				- [constant LightmapBaker.LIGHT_FALLOFF_INVERSE_SQUARE]: Stronger near the light source (inverse-square), then fades to 0 at the light range.
+			</description>
+		</method>
+		<method name="get_light_falloff_mode">
+			<return type="int" enum="LightmapBaker.LightFalloffMode" />
+			<description>
+				Returns the current light falloff mode.
+			</description>
+		</method>
+		<method name="set_use_environment_ambient">
+			<return type="void" />
+			<param index="0" name="enabled" type="bool" />
+			<description>
+				If enabled, adds ambient light from the active [World3D] [Environment] (ambient light color/energy) to the bake.
+			</description>
+		</method>
+		<method name="get_use_environment_ambient">
+			<return type="bool" />
+			<description>
+				Returns whether environment ambient is included in the bake.
+			</description>
+		</method>
+		<method name="set_environment_ambient_scale">
+			<return type="void" />
+			<param index="0" name="scale" type="float" />
+			<description>
+				Scales the environment ambient contribution (default: 1.0).
+			</description>
+		</method>
+		<method name="get_environment_ambient_scale">
+			<return type="float" />
+			<description>
+				Returns the environment ambient scale.
+			</description>
+		</method>
 		<method name="set_bake_quality">
 			<return type="void" />
 			<param index="0" name="quality" type="int" enum="LightmapBaker.BakeQuality" />
@@ -320,6 +362,12 @@
 		</method>
 	</methods>
 	<constants>
+		<constant name="LIGHT_FALLOFF_LEGACY" value="0" enum="LightFalloffMode">
+			Legacy falloff curve for point/spot lights.
+		</constant>
+		<constant name="LIGHT_FALLOFF_INVERSE_SQUARE" value="1" enum="LightFalloffMode">
+			Inverse-square near-source response with a linear cutoff at range.
+		</constant>
 		<constant name="BAKE_QUALITY_LOW" value="0" enum="BakeQuality">
 			Low quality: 256×256 atlas per slice.
 		</constant>
