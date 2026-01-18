@@ -4,8 +4,6 @@ compatibility_minimum = "4.5"
 reloadable = true
 
 [libraries]
-# You will build these binaries with SCons.
-# Godot picks the appropriate one automatically.
 windows.debug.x86_64 = "res://addons/extensions/bin/extensions.windows.template_debug.x86_64.dll"
 windows.release.x86_64 = "res://addons/extensions/bin/extensions.windows.template_release.x86_64.dll"
 linux.debug.x86_64 = "res://addons/extensions/bin/libextensions.linux.template_debug.x86_64.so"
