@@ -16,6 +16,8 @@
 #include "compound_part_proxy.h"
 #include "compound_part_node.h"
 
+#include "upscale_viewport.h"
+
 namespace godot {
 
 void initialize_extensions_module(ModuleInitializationLevel p_level) {
@@ -27,6 +29,7 @@ void initialize_extensions_module(ModuleInitializationLevel p_level) {
 		ClassDB::register_class<CompoundMeshInstance3D>();
 		ClassDB::register_class<CompoundPartProxy>();
 		ClassDB::register_class<CompoundPartNode3D>();
+		ClassDB::register_class<UpscaleViewport>();
 	}
 	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
 		ClassDB::register_class<MidiImporter>();

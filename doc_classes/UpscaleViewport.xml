@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="UpscaleViewport" inherits="Control" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Renders its children to a low-resolution SubViewport and upscales to the node size using a selectable shader upscaler.
+	</brief_description>
+	<description>
+		UpscaleViewport is an all-in-one render scaling node intended for Mobile, Forward+, and Compatibility renderers.
+		Child nodes added to UpscaleViewport are automatically reparented under an internal SubViewport.
+		The low-resolution SubViewport is then upscaled to this Control's size using a shader.
+		\n\nUpscalers:\n- FSR1: EASU+RCAS 2-pass upscaler\n- CT1: fast 2x2 triangulation-based interpolation\n- CT2: CT1 upscale + edge-adaptive sharpening (2-pass)
+	</description>
+	<tutorials>
+	</tutorials>
+	<members>
+		<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="true" />
+		<member name="reparent_children" type="bool" setter="set_reparent_children" getter="is_reparent_children" default="true" />
+		<member name="render_scale" type="float" setter="set_render_scale" getter="get_render_scale" default="0.5" />
+		<member name="min_render_size" type="Vector2i" setter="set_min_render_size" getter="get_min_render_size" default="Vector2i(320, 180)" />
+		<member name="resolution_mode" type="int" setter="set_resolution_mode" getter="get_resolution_mode" default="0" />
+		<member name="upscaler" type="int" setter="set_upscaler" getter="get_upscaler" default="2" />
+		<member name="pixel_scale_factor" type="int" setter="set_pixel_scale_factor" getter="get_pixel_scale_factor" default="2" />
+		<member name="sharpness" type="float" setter="set_sharpness" getter="get_sharpness" default="0.2" />
+		<member name="custom_upscaler_shader" type="Shader" setter="set_custom_upscaler_shader" getter="get_custom_upscaler_shader" />
+	</members>
+</class>

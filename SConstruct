@@ -18,6 +18,9 @@ sources = [
     # Register types (main entry point)
     "src/register_types.cpp",
 
+    # Upscaling / render scaling
+    "src/upscale_viewport.cpp",
+
     # Compound mesh instance (visual-only, RID-backed)
     "src/compound_mesh_instance_3d.cpp",
     "src/compound_part_proxy.cpp",
