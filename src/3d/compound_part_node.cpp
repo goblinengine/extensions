@@ -1,6 +1,6 @@
-#include "compound_part_node.h"
+#include "3d/compound_part_node.h"
 
-#include "compound_mesh_instance_3d.h"
+#include "3d/compound_mesh_instance_3d.h"
 
 #include <godot_cpp/core/object.hpp>
 

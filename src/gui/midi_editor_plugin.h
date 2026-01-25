@@ -1,7 +1,7 @@
 #pragma once
 
 #include <godot_cpp/classes/editor_plugin.hpp>
-#include "midi_importers.h"
+#include "resources/midi_importers.h"
 
 namespace godot {
 

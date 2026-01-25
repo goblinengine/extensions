@@ -8,7 +8,7 @@
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/templates/vector.hpp>
 
-#include "midi_resources.h"
+#include "resources/midi_resources.h"
 
 // TinySoundFont / TinyMidiLoader forward declarations.
 struct tsf;

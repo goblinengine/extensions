@@ -1,6 +1,6 @@
-#include "compound_part_proxy.h"
+#include "3d/compound_part_proxy.h"
 
-#include "compound_mesh_instance_3d.h"
+#include "3d/compound_mesh_instance_3d.h"
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/object.hpp>

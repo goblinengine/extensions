@@ -19,19 +19,19 @@ sources = [
     "src/register_types.cpp",
 
     # Compound mesh instance (visual-only, RID-backed)
-    "src/compound_mesh_instance_3d.cpp",
-    "src/compound_part_proxy.cpp",
-    "src/compound_part_node.cpp",
+    "src/3d/compound_mesh_instance_3d.cpp",
+    "src/3d/compound_part_proxy.cpp",
+    "src/3d/compound_part_node.cpp",
     
     # MidiPlayer component
-    "src/midi_player/midi_player.cpp",
-    "src/midi_player/midi_resources.cpp",
-    "src/midi_player/midi_importers.cpp",
-    "src/midi_player/midi_editor_plugin.cpp",
-    "src/midi_player/thirdparty_tsf_tml.cpp",
+    "src/2d/midi_player.cpp",
+    "src/resources/midi_resources.cpp",
+    "src/resources/midi_importers.cpp",
+    "src/gui/midi_editor_plugin.cpp",
+    "src/2d/thirdparty_tsf_tml.cpp",
 
     # Lightmap baker component
-    "src/lightmap_baker/lightmap_baker.cpp",
+    "src/3d/lightmap_baker/lightmap_baker.cpp",
 
     # Third-party: xatlas (runtime UV2 unwrapping)
     "lib/xatlas/source/xatlas/xatlas.cpp",
@@ -39,7 +39,6 @@ sources = [
 
 env.AppendUnique(CPPPATH=[
     "src",
-    "src/midi_player",
     "lib/TinySoundFont",
 	"lib/xatlas/source/xatlas",
 ])

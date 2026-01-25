@@ -5,16 +5,16 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/editor_plugin_registration.hpp>
 
-#include "midi_player/midi_player.h"
-#include "midi_player/midi_resources.h"
-#include "midi_player/midi_importers.h"
-#include "midi_player/midi_editor_plugin.h"
+#include "2d/midi_player.h"
+#include "resources/midi_resources.h"
+#include "resources/midi_importers.h"
+#include "gui/midi_editor_plugin.h"
 
-#include "lightmap_baker/lightmap_baker.h"
+#include "3d/lightmap_baker/lightmap_baker.h"
 
-#include "compound_mesh_instance_3d.h"
-#include "compound_part_proxy.h"
-#include "compound_part_node.h"
+#include "3d/compound_mesh_instance_3d.h"
+#include "3d/compound_part_proxy.h"
+#include "3d/compound_part_node.h"
 
 namespace godot {
 
