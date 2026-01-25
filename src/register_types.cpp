@@ -5,6 +5,8 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/editor_plugin_registration.hpp>
 
+#include "main/custom_tree.h"
+
 #include "2d/midi_player.h"
 #include "resources/midi_resources.h"
 #include "resources/midi_importers.h"
@@ -20,6 +22,7 @@ namespace godot {
 
 void initialize_extensions_module(ModuleInitializationLevel p_level) {
 	if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
+		ClassDB::register_class<CustomTree>();
 		ClassDB::register_class<MidiFileResource>();
 		ClassDB::register_class<SoundFontResource>();
 		ClassDB::register_class<MidiPlayer>();

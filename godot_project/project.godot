@@ -16,6 +16,34 @@ run/main_loop_type="CustomTree"
 config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://icon.svg"
 
+[custom_tree]
+
+tick/enabled=true
+tick/method="_tick_process"
+tick/interval_sec=0.1
+tick/run_in_physics=false
+tick/ignore_time_scale=false
+anim/enabled=true
+anim/method="_anim_process"
+anim/interval_sec=0.5
+anim/run_in_physics=false
+anim/ignore_time_scale=true
+effect/enabled=true
+effect/method="_effect_process"
+effect/interval_sec=1.0
+effect/run_in_physics=false
+effect/ignore_time_scale=false
+low/enabled=true
+low/method="_low_process"
+low/interval_sec=2.5
+low/run_in_physics=false
+low/ignore_time_scale=false
+decay/enabled=true
+decay/method="_decay_process"
+decay/interval_sec=5.0
+decay/run_in_physics=false
+decay/ignore_time_scale=false
+
 [dotnet]
 
 project/assembly_name="Godot Project"

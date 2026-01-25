@@ -18,6 +18,9 @@ sources = [
     # Register types (main entry point)
     "src/register_types.cpp",
 
+	# Main loop replacement (SceneTree-compatible)
+	"src/main/custom_tree.cpp",
+
     # Compound mesh instance (visual-only, RID-backed)
     "src/3d/compound_mesh_instance_3d.cpp",
     "src/3d/compound_part_proxy.cpp",
