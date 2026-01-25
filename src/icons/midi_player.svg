@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- Original icon: 2D "piano roll / player" in audio palette. -->
+  <g fill="#8da5f3" fill-rule="evenodd">
+    <!-- Frame (like a small editor panel) -->
+    <path opacity=".18" d="M3 2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/>
+    <path d="M3 3h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm0 1v8h10V4H3Z"/>
+
+    <!-- Piano keys strip (bottom) -->
+    <path d="M3 11h10v2H3v-2Z" opacity=".35"/>
+    <path d="M4 11v2H3v-2h1Zm2 0v2H5v-2h1Zm2 0v2H7v-2h1Zm2 0v2H9v-2h1Zm2 0v2h-1v-2h1Z"/>
+
+    <!-- Notes (piano roll blocks) -->
+    <path d="M4 5h3v2H4V5Zm5 1h3v2H9V6Z" opacity=".75"/>
+
+    <!-- Play triangle overlay -->
+    <path d="M6.6 8.2v2.6l2.4-1.3-2.4-1.3Z"/>
+  </g>
+</svg>

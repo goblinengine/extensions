@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- Original icon: a small cluster of isometric blocks ("compound" mesh feel). -->
+  <g fill="#fc7f7f" fill-rule="evenodd">
+    <!-- Back block (slightly transparent) -->
+    <path opacity=".55" d="M6 1 9 3 6 5 3 3 6 1Zm-3 2v4l3 2V5L3 3Zm6 0v4L6 9V5l3-2Z"/>
+    <!-- Front/primary block -->
+    <path d="M9 5 12 7 9 9 6 7 9 5ZM6 7v5l3 2V9L6 7Zm6 0v5l-3 2V9l3-2Z"/>
+    <!-- Small side block to suggest multiple parts -->
+    <path opacity=".85" d="M3 8 5 9.2 3 10.4 1 9.2 3 8ZM1 9.2v3.2l2 1.2v-3.2L1 9.2Zm4 0v3.2l-2 1.2v-3.2l2-1.2Z"/>
+  </g>
+</svg>

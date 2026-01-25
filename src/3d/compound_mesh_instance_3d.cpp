@@ -153,7 +153,8 @@ void CompoundMeshInstance3D::add_part(const StringName &p_path, const Ref<Mesh> 
 
 	String s = String(p_path);
 	if (s.begins_with("/")) {
-		s = s.substr(1);
+		// Part paths are relative-only (no leading '/').
+		return;
 	}
 	StringName path = StringName(s);
 
@@ -267,7 +268,8 @@ Variant CompoundMeshInstance3D::get_part_or_null(const NodePath &p_path) {
 		return this;
 	}
 	if (s.begins_with("/")) {
-		s = s.substr(1);
+		// Part paths are relative-only (no leading '/').
+		return Variant();
 	}
 	StringName key(s);
 	if (!path_to_index.has(key)) {
@@ -619,8 +621,10 @@ void CompoundMeshInstance3D::sync_all_scenarios() {
 
 void CompoundMeshInstance3D::mark_all_dirty() {
 	for (int32_t i = 0; i < (int32_t)dirty.size(); i++) {
-		dirty.write[i] = 1;
-		dirty_queue.push_back(i);
+		if (!dirty[i]) {
+			dirty.write[i] = 1;
+			dirty_queue.push_back(i);
+		}
 	}
 }
 

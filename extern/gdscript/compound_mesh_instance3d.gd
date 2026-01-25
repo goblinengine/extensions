@@ -132,7 +132,8 @@ func add_part(
 		return
 	var path_str := String(path)
 	if path_str.begins_with("/"):
-		path_str = path_str.substr(1)
+		# Part paths are relative-only (no leading '/').
+		return
 	path = StringName(path_str)
 
 	# Ensure parents exist (virtual transform-only parts are allowed).
@@ -272,7 +273,8 @@ func get_part_or_null(path: NodePath) -> Variant:
 	if s == "" or s == ".":
 		return self
 	if s.begins_with("/"):
-		s = s.substr(1)
+		# Part paths are relative-only (no leading '/').
+		return null
 	var key := StringName(s)
 	var idx: int = _path_to_index.get(key, -1)
 	if idx != -1:
@@ -431,8 +433,9 @@ func _sync_all_scenarios() -> void:
 
 func _mark_all_dirty() -> void:
 	for i in range(_dirty.size()):
-		_dirty[i] = 1
-		_dirty_queue.append(i)
+		if _dirty[i] == 0:
+			_dirty[i] = 1
+			_dirty_queue.append(i)
 
 
 func _mark_dirty_subtree(idx: int) -> void:
