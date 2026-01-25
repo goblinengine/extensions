@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <class name="SoundFontResource" inherits="Resource" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
-		A resource wrapper for SoundFont files used by [MidiPlayer] for instrument synthesis.
+		A resource wrapper for SoundFont files used by [MidiStream] for instrument synthesis.
 	</brief_description>
 	<description>
-		[SoundFontResource] loads and stores SoundFont (.sf2) data for use with [MidiPlayer]. SoundFont files contain instrument definitions, samples, and synthesis parameters needed for MIDI playback.
+		[SoundFontResource] loads and stores SoundFont (.sf2) data for use with [MidiStream]. SoundFont files contain instrument definitions, samples, and synthesis parameters needed for MIDI playback.
 
 		The resource uses TinySoundFont internally to parse and manage the SoundFont data. It automatically loads all instruments and presets from the SoundFont file on import.
 	</description>

@@ -2,6 +2,7 @@
 
 import os
 import sys
+import shutil
 
 # Add godot-cpp tools folder so we can use their build tools
 godot_cpp_path = "godot-cpp"
@@ -26,8 +27,9 @@ sources = [
     "src/3d/compound_part_proxy.cpp",
     "src/3d/compound_part_node.cpp",
     
-    # MidiPlayer component
-    "src/2d/midi_player.cpp",
+    # Midi stream (AudioStream-based)
+    "src/resources/midi_stream.cpp",
+    "src/resources/midi_stream_playback.cpp",
     "src/resources/midi_resources.cpp",
     "src/resources/midi_importers.cpp",
     "src/gui/midi_editor_plugin.cpp",
@@ -62,6 +64,20 @@ lib_basename = "extensions" + suffix
 
 # Emit into the godot_project addon bin folder so Godot can load it.
 out_dir = "godot_project/addons/extensions/bin"
+
+# Also sync editor icons into the addon folder so Godot can import them.
+icons_out_dir = "godot_project/addons/extensions/icons"
+if not os.path.isdir(icons_out_dir):
+    os.makedirs(icons_out_dir)
+
+for icon_name in [
+    "midi_player.svg",
+    "compound_mesh_instance3d.svg",
+]:
+    src_icon = os.path.join("src", "icons", icon_name)
+    dst_icon = os.path.join(icons_out_dir, icon_name)
+    if os.path.isfile(src_icon):
+        shutil.copyfile(src_icon, dst_icon)
 
 # Ensure output dir exists.
 if not os.path.isdir(out_dir):

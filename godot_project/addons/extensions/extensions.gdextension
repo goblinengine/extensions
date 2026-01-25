@@ -10,3 +10,7 @@ linux.debug.x86_64 = "res://addons/extensions/bin/libextensions.linux.template_d
 linux.release.x86_64 = "res://addons/extensions/bin/libextensions.linux.template_release.x86_64.so"
 macos.debug.universal = "res://addons/extensions/bin/libextensions.macos.template_debug.universal.dylib"
 macos.release.universal = "res://addons/extensions/bin/libextensions.macos.template_release.universal.dylib"
+
+[icons]
+MidiStream = "res://addons/extensions/icons/midi_stream.svg"
+CompoundMeshInstance3D = "res://addons/extensions/icons/compound_mesh_instance3d.svg"

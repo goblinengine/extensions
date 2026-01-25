@@ -13,11 +13,11 @@ void MidiImporter::_bind_methods() {
 }
 
 String MidiImporter::_get_importer_name() const {
-	return "midi_player.mid";
+	return "midi_stream.mid";
 }
 
 String MidiImporter::_get_visible_name() const {
-	return "MIDI File (MidiPlayer)";
+	return "MIDI File (MidiStream)";
 }
 
 PackedStringArray MidiImporter::_get_recognized_extensions() const {
@@ -59,7 +59,7 @@ Error MidiImporter::_import(const String &p_source_file, const String &p_save_pa
 		const TypedArray<String> &p_platform_variants, const TypedArray<String> &p_gen_files) const {
 	PackedByteArray bytes = FileAccess::get_file_as_bytes(p_source_file);
 	if (bytes.is_empty()) {
-		UtilityFunctions::push_error("MidiPlayer importer: failed to read bytes: " + p_source_file);
+		UtilityFunctions::push_error("MidiStream importer: failed to read bytes: " + p_source_file);
 		return ERR_CANT_OPEN;
 	}
 
@@ -74,11 +74,11 @@ void SoundFontImporter::_bind_methods() {
 }
 
 String SoundFontImporter::_get_importer_name() const {
-	return "midi_player.sf2";
+	return "midi_stream.sf2";
 }
 
 String SoundFontImporter::_get_visible_name() const {
-	return "SoundFont 2 (MidiPlayer)";
+	return "SoundFont 2 (MidiStream)";
 }
 
 PackedStringArray SoundFontImporter::_get_recognized_extensions() const {
@@ -119,7 +119,7 @@ Error SoundFontImporter::_import(const String &p_source_file, const String &p_sa
 		const TypedArray<String> &p_platform_variants, const TypedArray<String> &p_gen_files) const {
 	PackedByteArray bytes = FileAccess::get_file_as_bytes(p_source_file);
 	if (bytes.is_empty()) {
-		UtilityFunctions::push_error("MidiPlayer importer: failed to read bytes: " + p_source_file);
+		UtilityFunctions::push_error("MidiStream importer: failed to read bytes: " + p_source_file);
 		return ERR_CANT_OPEN;
 	}
 

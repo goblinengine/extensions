@@ -7,7 +7,8 @@
 
 #include "main/custom_tree.h"
 
-#include "2d/midi_player.h"
+#include "resources/midi_stream.h"
+#include "resources/midi_stream_playback.h"
 #include "resources/midi_resources.h"
 #include "resources/midi_importers.h"
 #include "gui/midi_editor_plugin.h"
@@ -25,7 +26,8 @@ void initialize_extensions_module(ModuleInitializationLevel p_level) {
 		ClassDB::register_class<CustomTree>();
 		ClassDB::register_class<MidiFileResource>();
 		ClassDB::register_class<SoundFontResource>();
-		ClassDB::register_class<MidiPlayer>();
+		ClassDB::register_class<MidiStream>();
+		ClassDB::register_class<MidiStreamPlayback>();
 		ClassDB::register_class<LightmapBaker>();
 		ClassDB::register_class<CompoundMeshInstance3D>();
 		ClassDB::register_class<CompoundPartProxy>();

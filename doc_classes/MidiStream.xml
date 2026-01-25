@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="MidiStream" inherits="AudioStream" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		An AudioStream that plays MIDI files using SoundFont synthesis.
+	</brief_description>
+	<description>
+		[MidiStream] is a custom [AudioStream] that plays MIDI files using CPU-based SoundFont synthesis (TinySoundFont).
+		Assign it to [AudioStreamPlayer], [AudioStreamPlayer2D], or [AudioStreamPlayer3D] to get playback with standard bus/volume controls.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="set_soundfont">
+			<return type="void" />
+			<param index="0" name="resource" type="SoundFontResource" />
+		</method>
+		<method name="get_soundfont">
+			<return type="SoundFontResource" />
+		</method>
+		<method name="set_midi">
+			<return type="void" />
+			<param index="0" name="resource" type="MidiFileResource" />
+		</method>
+		<method name="get_midi">
+			<return type="MidiFileResource" />
+		</method>
+		<method name="set_loop">
+			<return type="void" />
+			<param index="0" name="loop" type="bool" />
+		</method>
+		<method name="get_loop">
+			<return type="bool" />
+		</method>
+		<method name="set_midi_speed">
+			<return type="void" />
+			<param index="0" name="speed" type="float" />
+		</method>
+		<method name="get_midi_speed">
+			<return type="float" />
+		</method>
+	</methods>
+	<constants>
+		<!-- Enums are exposed from MidiStream: GeneralMidiInstrument, MidiNote, MidiDrumNote -->
+	</constants>
+</class>
