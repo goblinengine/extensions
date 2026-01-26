@@ -8,8 +8,8 @@
 
 #include "resources/midi_stream.h"
 
-#include "../../lib/TinySoundFont/tsf.h"
-#include "../../lib/TinySoundFont/tml.h"
+struct tsf;
+struct tml_message;
 
 namespace godot {
 

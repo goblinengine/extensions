@@ -32,11 +32,10 @@ sources = [
     "src/resources/midi_stream_playback.cpp",
     "src/resources/midi_resources.cpp",
     "src/resources/midi_importers.cpp",
-    "src/gui/midi_editor_plugin.cpp",
-    "src/2d/thirdparty_tsf_tml.cpp",
+    "src/editor/midi_editor_plugin.cpp",
 
     # Lightmap baker component
-    "src/3d/lightmap_baker/lightmap_baker.cpp",
+    "src/main/lightmap_baker.cpp",
 
     # Third-party: xatlas (runtime UV2 unwrapping)
     "lib/xatlas/source/xatlas/xatlas.cpp",

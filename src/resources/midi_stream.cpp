@@ -4,7 +4,7 @@
 
 #include "resources/midi_stream_playback.h"
 
-#include "../../lib/TinySoundFont/tml.h"
+#include "tml.h"
 
 VARIANT_ENUM_CAST(godot::MidiStream::GeneralMidiInstrument);
 VARIANT_ENUM_CAST(godot::MidiStream::MidiNote);

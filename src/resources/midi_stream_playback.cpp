@@ -1,5 +1,14 @@
 #include "resources/midi_stream_playback.h"
 
+// TinySoundFont + TinyMidiLoader implementation is compiled into this TU.
+#define TSF_IMPLEMENTATION
+#define TSF_NO_STDIO
+#define TML_IMPLEMENTATION
+#define TML_NO_STDIO
+
+#include "tsf.h"
+#include "tml.h"
+
 #include <algorithm>
 
 #include <godot_cpp/classes/audio_server.hpp>
